@@ -222,13 +222,23 @@ fi
 # ---------------------------------------------
 
 
+# export cur_path=$(echo "/home/oem2/Documents/ONLINE_CLASSES/Spécialisation_Google_Data_Analytics/3_Google_Data_Analytics_Capstone_Complete_a_Case_Study/ingestion_folder/csvdata/exact_match_header")
+export cur_path=$(echo "/home/oem2/Documents/ONLINE_CLASSES/Spécialisation_Google_Data_Analytics/3_Google_Data_Analytics_Capstone_Complete_a_Case_Study/ingestion_folder/csvdata/similar_match_header/exact_match_header")
+echo "cur_path"
+echo $cur_path
+    
+
+# ---------------------------------------------
+    
+
 export val=$(echo "X1")
 
 if [[ $val == "X0" ]]
 then 
     echo "---------------- Query upload csv files to tables ----------------"
     
-    cd /home/oem2/Documents/ONLINE_CLASSES/Spécialisation_Google_Data_Analytics/3_Google_Data_Analytics_Capstone_Complete_a_Case_Study/ingestion_folder/csvdata/exact_match_header
+    cd $cur_path
+    
     
     if [ -f file_list_names ]; then
        rm file_list_names
@@ -253,7 +263,7 @@ then
        #export CSV_FILENAME=${CSV_NAME/.csv/}
        # export TABLE_name=$(echo "${CSV_FILENAME}${cnt}")
        
-       export TABLE_name=$(echo "${Generic_CSV_FILENAME}${cnt}")
+       export TABLE_name=$(echo "${Generic_CSV_FILENAME}bday${cnt}")
        
        # Need to save a list of TABLE_name, to do the UNION query next
         echo $TABLE_name >> table_list_names
@@ -264,10 +274,10 @@ then
             --location=$location \
             --source_format=CSV \
             --skip_leading_rows=1 \
-            #--autodetect \
+            --autodetect \
             $dataset_name.$TABLE_name \
-            ./$CSV_NAME \
-                        #ride_id:string,rideable_type:string,started_at:timestamp,ended_at:timestamp,start_station_name:string,start_station_id:string,end_station_name:string,end_station_id:string,start_lat:float,start_lng:float,end_lat:float,end_lng:float,member_casual:string
+            ./$CSV_NAME
+            # trip_id:string,starttime:string,stoptime:string,bikeid:string,tripduration:string,start_station_id:string,start_station_name:string,end_station_id:string,end_station_name:string,usertype:string,gender:string,birthyear:string #ride_id:string,rideable_type:string,started_at:timestamp,ended_at:timestamp,start_station_name:string,start_station_id:string,end_station_name:string,end_station_id:string,start_lat:float,start_lng:float,end_lat:float,end_lng:float,member_casual:string
        cnt=$((cnt + 1))
        
     done
@@ -283,11 +293,6 @@ export val=$(echo "X1")
 if [[ $val == "X0" ]]
 then 
     echo "---------------- update the table schema ----------------"
-    
-    # Step 1: Get main path
-    export cur_path=$(echo "/home/oem2/Documents/ONLINE_CLASSES/Spécialisation_Google_Data_Analytics/3_Google_Data_Analytics_Capstone_Complete_a_Case_Study/ingestion_folder/csvdata/exact_match_header")
-    echo "cur_path"
-    echo $cur_path
     
     cd $cur_path
     
@@ -318,9 +323,6 @@ then
     echo "---------------- Query UNION the Tables ----------------"
     # Key : All the headers for the files need to be the same
     
-    export cur_path=$(echo "/home/oem2/Documents/ONLINE_CLASSES/Spécialisation_Google_Data_Analytics/3_Google_Data_Analytics_Capstone_Complete_a_Case_Study/ingestion_folder/csvdata/exact_match_header")
-    echo "cur_path"
-    echo $cur_path
     
     cd $cur_path
     
@@ -328,7 +330,7 @@ then
     export output_TABLE_name_cur=$(echo "output_TABLE_name_cur")
     
     # bq ls $PROJECT_ID:$dataset_name
-    cnt=1
+    cnt=0
     for TABLE_name in $(cat table_list_names)
     do  
         echo "TABLE_name:"
@@ -474,6 +476,182 @@ fi
 # ---------------------------------------------
 
 
+
+# ---------------------------------------------
+# bikeshare_table1
+
+# trip_id:string,
+# starttime:string,
+# stoptime:string,
+# bikeid:string,
+# tripduration:string,
+# start_station_id:string,
+# start_station_name:string,
+# end_station_id:string,
+# end_station_name:string,
+# usertype:string,
+# gender:string,
+# birthyear:string
+# ---------------------------------------------
+export val=$(echo "X1")
+
+if [[ $val == "X0" ]]
+then 
+    
+    
+    echo "---------------- Query UNION the Tables ----------------"
+    # Key : All the headers for the files need to be the same
+    
+    
+    cd $cur_path
+    
+    export output_TABLE_name_prev=$(echo "output_TABLE_name_prev")
+    export output_TABLE_name_cur=$(echo "output_TABLE_name_cur")
+    
+    # bq ls $PROJECT_ID:$dataset_name
+    cnt=0
+    for TABLE_name in $(cat table_list_names)
+    do  
+        echo "TABLE_name:"
+        echo $TABLE_name
+        
+        
+        # The output_TABLE_name can not be the same as an existing table, so it is necessary to change the table name after a UNION 
+        if [[ $cnt == 0 ]]; then
+            # Just save this table to have and output name
+            
+            # Create output_TABLE_name_prev
+            echo "-----------------------------------"
+            bq query \
+            --location=$location \
+            --destination_table $PROJECT_ID:$dataset_name.$output_TABLE_name_prev \
+            --allow_large_results \
+            --use_legacy_sql=false \
+            'SELECT CAST(trip_id AS STRING) AS trip_id,
+            CAST(starttime AS STRING) AS starttime,
+            CAST(stoptime AS STRING) AS stoptime,
+            CAST(bikeid AS STRING) AS bikeid,
+             CAST(tripduration AS STRING) AS tripduration,
+             CAST(start_station_id AS STRING) AS start_station_id,
+             CAST(start_station_name AS STRING) AS start_station_name,
+             CAST(end_station_id AS STRING) AS end_station_id,
+             CAST(end_station_name AS STRING) AS end_station_name,
+             CAST(usertype AS STRING) AS usertype,
+             CAST(gender AS STRING) AS gender,
+             CAST(birthyear AS STRING) AS birthyear
+             FROM `northern-eon-377721.google_analytics.'$TABLE_name'`;'
+            echo "-----------------------------------"
+            
+            # It fails: says table is not found ... does it take time to make the table??
+            # echo "-----------------------------------"
+            # echo "Print length of Unioned table"
+            # Print length of Unioned table
+            # bq query \
+            # --location=$location \
+            # --allow_large_results \
+            # --use_legacy_sql=false \
+            # 'SELECT COUNT(*) FROM `northern-eon-377721.google_analytics.'$output_TABLE_name_cur'`;'
+            echo "-----------------------------------"
+            
+        else
+            
+            # Here the table exists and it puts start_station_id and end_station_id as INTEGER
+            echo "-----------------------------------"
+            echo "Confirm matching table schema of both tables:"
+            echo "-----------------------------------"
+            echo "Show schema of output_TABLE_name_prev"
+            bq --location=$location show \
+		--schema \
+		--format=prettyjson \
+		$PROJECT_ID:$dataset_name.$output_TABLE_name_prev
+            
+            echo "Show schema of TABLE_name"
+            bq --location=$location show \
+		--schema \
+		--format=prettyjson \
+		$PROJECT_ID:$dataset_name.$TABLE_name
+            echo "-----------------------------------"
+            
+            
+            echo "-----------------------------------"
+            echo "Union tables"
+            # Union tables : UNION only takes distinct values, but UNION ALL keeps all of the values selected
+            bq query \
+            --location=$location \
+            --destination_table $PROJECT_ID:$dataset_name.$output_TABLE_name_cur \
+            --allow_large_results \
+            --use_legacy_sql=false \
+            'SELECT CAST(trip_id AS STRING) AS trip_id,
+            CAST(starttime AS STRING) AS starttime,
+            CAST(stoptime AS STRING) AS stoptime,
+            CAST(bikeid AS STRING) AS bikeid,
+             CAST(tripduration AS STRING) AS tripduration,
+             CAST(start_station_id AS STRING) AS start_station_id,
+             CAST(start_station_name AS STRING) AS start_station_name,
+             CAST(end_station_id AS STRING) AS end_station_id,
+             CAST(end_station_name AS STRING) AS end_station_name,
+             CAST(usertype AS STRING) AS usertype,
+             CAST(gender AS STRING) AS gender,
+             CAST(birthyear AS STRING) AS birthyear
+            FROM `northern-eon-377721.google_analytics.'$output_TABLE_name_prev'`
+            UNION ALL 
+            SELECT CAST(trip_id AS STRING) AS trip_id,
+            CAST(starttime AS STRING) AS starttime,
+            CAST(stoptime AS STRING) AS stoptime,
+            CAST(bikeid AS STRING) AS bikeid,
+             CAST(tripduration AS STRING) AS tripduration,
+             CAST(start_station_id AS STRING) AS start_station_id,
+             CAST(start_station_name AS STRING) AS start_station_name,
+             CAST(end_station_id AS STRING) AS end_station_id,
+             CAST(end_station_name AS STRING) AS end_station_name,
+             CAST(usertype AS STRING) AS usertype,
+             CAST(gender AS STRING) AS gender,
+             CAST(birthyear AS STRING) AS birthyear
+            FROM `northern-eon-377721.google_analytics.'$TABLE_name'`;'
+            echo "-----------------------------------"
+            
+            echo "-----------------------------------"
+            echo "Print length of Unioned table"
+            # Print length of Unioned table
+            bq query \
+            --location=$location \
+            --allow_large_results \
+            --use_legacy_sql=false \
+            'SELECT COUNT(*) FROM `northern-eon-377721.google_analytics.'$output_TABLE_name_cur'`;'
+            echo "-----------------------------------"
+            
+            echo "-----------------------------------"
+            #echo "Delete output_TABLE_name_prev"
+            # Delete output_TABLE_name_prev because it is now in output_TABLE_name_cur
+            bq --location=$location rm -f -t $PROJECT_ID:$dataset_name.$output_TABLE_name_prev
+            echo "-----------------------------------"
+            
+            echo "-----------------------------------"
+            # https://cloud.google.com/bigquery/docs/managing-tables#renaming-table
+            echo "copy table output_TABLE_name_cur to output_TABLE_name_prev"
+            bq --location=$location cp \
+            -a -f -n \
+            $PROJECT_ID:$dataset_name.$output_TABLE_name_cur \
+            $PROJECT_ID:$dataset_name.$output_TABLE_name_prev
+            echo "-----------------------------------"
+            
+            echo "-----------------------------------"
+            # Delete output_TABLE_name_cur because it is now in output_TABLE_name_prev
+            bq --location=$location rm -f -t $PROJECT_ID:$dataset_name.$output_TABLE_name_cur
+            echo "-----------------------------------"
+            
+        fi
+        
+        cnt=$((cnt + 1))
+        
+    done
+    
+fi
+
+
+# ---------------------------------------------
+
+
 # -----------------
 # Backup/Copy table
 # -----------------
@@ -484,7 +662,8 @@ then
     
     echo "Backup/Copy table:"
     export output_TABLE_name=$(echo "output_TABLE_name_prev")
-    export output_TABLE_name_backup=$(echo "bikeshare_table0")
+    # export output_TABLE_name_backup=$(echo "bikeshare_table0")
+    export output_TABLE_name_backup=$(echo "bikeshare_table1")
     
     bq --location=$location cp \
             -a -f -n \
