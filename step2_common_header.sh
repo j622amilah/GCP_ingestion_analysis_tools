@@ -546,7 +546,7 @@ model_evaluation(){
     # Step 1: calculate word similarity, put similarity output in a file
     # How to use Hugging Face REST APIs : https://huggingface.co/docs/api-inference/detailed_parameters
     # ---------------------------
-    export HF_API_TOKEN=$(echo "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")
+    export HF_API_TOKEN=$(echo "")
       
     curl https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2 \
          -X POST \
