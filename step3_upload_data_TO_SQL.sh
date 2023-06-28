@@ -106,7 +106,7 @@ export location=$(echo "europe-west9")  # Paris
 
 
 # ---------------------------------------------
-# SELECT PROJECT_ID
+# ENABLE API Services
 # ---------------------------------------------
 export val=$(echo "X1")
 

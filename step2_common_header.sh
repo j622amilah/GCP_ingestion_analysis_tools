@@ -546,7 +546,7 @@ model_evaluation(){
     # Step 1: calculate word similarity, put similarity output in a file
     # How to use Hugging Face REST APIs : https://huggingface.co/docs/api-inference/detailed_parameters
     # ---------------------------
-    export HF_API_TOKEN=$(echo "")
+    export HF_API_TOKEN=$(echo "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")
       
     curl https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2 \
          -X POST \
@@ -589,7 +589,7 @@ model_evaluation(){
     c=1  # ****** ALL vectors start at 1 ******
     for csim in $(cat sim_int)
     do
-        if [[ $csim == $max ]] && [[ $csim -gt 70 ]]; then
+        if [[ $csim == $max ]] && [[ $csim -ge 60 ]]; then
             
           export to_replace=$(echo $1)
           export to_replace_with=$(cat header_reduced | head -n $c | tail -n $(($c-($c-1))))
