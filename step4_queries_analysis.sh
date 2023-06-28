@@ -22,7 +22,7 @@ then
     source '/usr/lib/google-cloud-sdk/completion.bash.inc'
     export PATH="/usr/lib/google-cloud-sdk/bin:$PATH"
     
-    # Get latest version of the Google Cloud CLI
+    # Get latest version of the Google Cloud CLI (does not work)
     gcloud components update
 else
     echo "Do not setup google cloud sdk PATH"
@@ -238,7 +238,7 @@ fi
 
 
 # 0. Determine if data is joinable to try to connect the two tables
-export val=$(echo "X0")
+export val=$(echo "X1")
 
 if [[ $val == "X0" ]]
 then 
@@ -251,7 +251,6 @@ then
      
      export TABLE_name_join=$(echo "bikeshare_full")
      
-     # Column name start_station_name is ambiguous at [5:13]
 
      bq query \
             --location=$location \
@@ -283,18 +282,25 @@ then
             T1.usertype, 
             T1.gender, 
             T1.birthyear FROM `'$PROJECT_ID'.'$dataset_name'.'$TABLE_name0'` AS T0
-JOIN `'$PROJECT_ID'.'$dataset_name'.'$TABLE_name1'` AS T1 ON T0.ride_id = T1.trip_id;'   
+FULL JOIN `'$PROJECT_ID'.'$dataset_name'.'$TABLE_name1'` AS T1 ON T0.ride_id = T1.trip_id;'   
 
 fi
 
 
 # ---------------------------------------------
 
-# Confirm that the Joined table was created
-export location=$(echo "europe-west9")
-export PROJECT_ID=$(echo "northern-eon-377721")
-export dataset_name=$(echo "google_analytics")
-bq --location=$location ls $PROJECT_ID:$dataset_name
+
+export val=$(echo "X1")
+
+if [[ $val == "X0" ]]
+then 
+	# Confirm that the Joined table was created
+	export location=$(echo "europe-west9")
+	export PROJECT_ID=$(echo "northern-eon-377721")
+	export dataset_name=$(echo "google_analytics")
+	bq --location=$location ls $PROJECT_ID:$dataset_name
+
+fi
 
 # Great! worked!
 
@@ -302,22 +308,95 @@ bq --location=$location ls $PROJECT_ID:$dataset_name
 # ---------------------------------------------
 
 
-# 1. How do annual members and casual riders use Cyclistic bikes diﬀerently?
-# features : rideable_type, tripduration (need to fillin this column with ended_at-started)
 export val=$(echo "X1")
 
 if [[ $val == "X0" ]]
 then 
+	export TABLE_name=$(echo "bikeshare_full")
     
-    bikeshare_full
+    # List only the column names
+    bq query \
+    --location=$location \
+    --allow_large_results \
+    --use_legacy_sql=false \
+    "SELECT column_name
+FROM $PROJECT_ID.$dataset_name.INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_NAME='$TABLE_name';"
+    
+    # +---------------+
+    # |  column_name  |
+    # +---------------+
+    # | ride_id       |
+    # | rideable_type |
+    # | started_at    |
+    # | ended_at      |
+    # | stsname_T0    |
+    # | ssid_T0       |
+    # | esname_T0     |
+    # | esid_T0       |
+    # | start_lat     |
+    # | start_lng     |
+    # | end_lat       |
+    # | end_lng       |
+    # | member_casual |
+    # | trip_id       |
+    # | starttime     |
+    # | stoptime      |
+    # | bikeid        |
+    # | tripduration  |
+    # | ssid_T1       |
+    # | stsname_T1    |
+    # | esid_T1       |
+    # | esname_T1     |
+    # | usertype      |
+    # | gender        |
+    # | birthyear     |
+    # +---------------+
+
+    
+    # Lists many specifications of a table: 
+    # table_catalog    |   table_schema   |   table_name   |  column_name  | ordinal_position | is_nullable | data_type | is_generated | generation_expression | is_stored | is_hidden | is_updatable | is_system_defined | is_partitioning_column | clustering_ordinal_position | collation_name | column_default | rounding_mode
+    # "SELECT *
+    # FROM $PROJECT_ID.$dataset_name.INFORMATION_SCHEMA.COLUMNS
+    # WHERE TABLE_NAME='$TABLE_name';"
+    
+    # OR 
+    
+    # SELECT *
+    # FROM $PROJECT_ID.$dataset_name.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS
+    # WHERE TABLE_NAME='$TABLE_name';"
+fi
+
+# ---------------------------------------------
+
+
+
+
+# ---------------------------------------------
+
+
+# 1. How do annual members and casual riders use Cyclistic bikes diﬀerently?
+# features : rideable_type, tripduration (need to fillin this column with ended_at-started)
+export val=$(echo "X0")
+
+if [[ $val == "X0" ]]
+then 
+    
+    export TABLE_name=$(echo "bikeshare_full")
+    
     
     bq query \
     --location=$location \
     --allow_large_results \
     --use_legacy_sql=false \
-    'SELECT * FROM `'$PROJECT_ID'.'$dataset_name'.'$TABLE_name0'`
-    WHERE member_casual ;'
-
+    'SELECT ended_at, stoptime FROM `'$PROJECT_ID'.'$dataset_name'.'$TABLE_name'`
+    WHERE ended_at IS NOT NULL
+    ORDER BY stoptime, ended_at DESC
+    LIMIT 10;'
+    
+    
+    
+    
 
 fi
 
@@ -327,14 +406,25 @@ fi
 
 # 2. Why would casual riders buy Cyclistic annual memberships?
 
+export val=$(echo "X1")
 
+if [[ $val == "X0" ]]
+then 
+	echo ""
 
+fi
 
 # ---------------------------------------------
 
 # 3. How can Cyclistic use digital media to inﬂuence casual riders to become members?
 
+export val=$(echo "X1")
 
+if [[ $val == "X0" ]]
+then 
+	echo ""
+
+fi
 
 # ---------------------------------------------
 
