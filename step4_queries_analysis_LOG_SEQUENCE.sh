@@ -296,6 +296,17 @@ member_casual
 rideable_type
 gender
 
+
+
+
+
+
+
+
+
+
+
+
 # ---------------------------------------------
 
 # 2. Question 0: How do annual members and casual riders use Cyclistic bikes diﬀerently?
@@ -406,20 +417,160 @@ bikeid
 # https://cloud.google.com/bigquery/docs/reference/standard-sql/statistical_aggregate_functions#stddev
 # ---------------------------------------------
 # 2. Question 0: How do annual members and casual riders use Cyclistic bikes diﬀerently?
-bq query \
-            --location=$location \
-            --allow_large_results \
-            --use_legacy_sql=false \
-    'WITH shorttab2 AS
-(
-  SELECT * FROM `'$PROJECT_ID'.'$dataset_name'.'$TABLE_name'`
-)
-SELECT member_casual, (AVG(trip_time)-(SELECT AVG(trip_time) FROM `'$PROJECT_ID'.'$dataset_name'.'$TABLE_name'`))/((SELECT STDDEV(trip_time) FROM `'$PROJECT_ID'.'$dataset_name'.'$TABLE_name'`)/SQRT(COUNT(*))) AS t, (AVG(trip_time) - (SELECT AVG(trip_time) FROM `'$PROJECT_ID'.'$dataset_name'.'$TABLE_name'`))/(SELECT STDDEV(trip_time) FROM `'$PROJECT_ID'.'$dataset_name'.'$TABLE_name'`) AS z, AVG(trip_time) AS avg_trip_time, COUNT(*) AS sample_number FROM shorttab2
-GROUP BY member_casual;'
+
+
+# [ONE SAMPLE TESTS : testing significance with respect to the mean of a numerical feature FOR a categorical feature category (sample population) ]
+# Determine if a numerical feature for a category of another feature is statistically different than the mean of the numerical feature regardless of considering the categorical feature
+
+# Does being a member mean that trip_time is significantly lower with respect to the mean of trip_time (regardless of being a member or not)?
+	
+
+Categorical feature:
+member_casual
+Numerical feature:
+trip_distance
++---------------+----------------------+----------------------+-----------------------+------------------+
+| member_casual | z_critical_onesample | t_critical_onesample |     avg_samp1_VAR     | df_sample_number |
++---------------+----------------------+----------------------+-----------------------+------------------+
+| member        |    0.879237652959979 |   0.7805120094229702 |  0.006629366046007349 |         23815154 |
+| casual        |  -0.8883783713928745 |  -1.1361523608536124 | 0.0037317409782921546 |         11647954 |
++---------------+----------------------+----------------------+-----------------------+------------------+
+Numerical feature:
+trip_time
++---------------+----------------------+----------------------+--------------------+------------------+
+| member_casual | z_critical_onesample | t_critical_onesample |   avg_samp1_VAR    | df_sample_number |
++---------------+----------------------+----------------------+--------------------+------------------+
+| member        |  -124.50965197888024 |  -206.05286801679762 |  769.1156600540992 |         23815154 |
+| casual        |   178.03479666544126 |   117.54641282041989 | 2118.0848747342275 |         11647954 |
++---------------+----------------------+----------------------+--------------------+------------------+
+Numerical feature:
+birthyear_INT
++---------------+----------------------+----------------------+--------------------+------------------+
+| member_casual | z_critical_onesample | t_critical_onesample |   avg_samp1_VAR    | df_sample_number |
++---------------+----------------------+----------------------+--------------------+------------------+
+| member        |   -75.84176670734924 |   -75.96042235256981 | 1981.1941846065026 |         23815154 |
+| casual        |   1892.5334276437748 |    2122.193011730036 | 1987.4188076871396 |         11647954 |
++---------------+----------------------+----------------------+--------------------+------------------+
+
+******* Need to calculate the mean *******
+
+
+
+# https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-label-encoder
+# SQL z/t-statistic library and p-value calculation
+
+# [ONE SAMPLE TESTS : testing significance with respect to the mean of a numerical feature FOR a categorical feature category (sample population) ]
+# Determine if a numerical feature for a category of another feature is statistically different than the mean of the numerical feature regardless of considering the categorical feature
+
+# Does being a member mean that trip_time is significantly lower with respect to the mean of trip_time (regardless of being a member or not)?
+
+# declare -a CAT_FEATS=('rideable_type' 'gender');
+
+# if I want categorical transformed 
+
+
+Categorical feature:
+member_casual
+Transform categorical feature into a Numerical feature:
+rideable_type
++---------------+----------------------+----------------------+--------------------+------------------+
+| member_casual | z_critical_onesample | t_critical_onesample |   avg_samp1_VAR    | df_sample_number |
++---------------+----------------------+----------------------+--------------------+------------------+
+| casual        |    211.0045815099089 |    216.2548939041834 | 2.0533580712491686 |          6744303 |
+| member        |   -175.6635532907007 |   -173.4659121757601 | 1.9312360568044353 |          9731001 |
++---------------+----------------------+----------------------+--------------------+------------------+
++---------------+------------------+---------+
+| rideable_type | transformed_FEAT |   f0_   |
++---------------+------------------+---------+
+| electric_bike |                3 | 6340477 |
+| classic_bike  |                1 | 6649756 |
+| docked_bike   |                2 | 3485071 |
++---------------+------------------+---------+
+
+
+Categorical feature:
+member_casual
+Transform categorical feature into a Numerical feature:
+gender
+
++---------------+----------------------+----------------------+--------------------+------------------+
+| member_casual | z_critical_onesample | t_critical_onesample |   avg_samp1_VAR    | df_sample_number |
++---------------+----------------------+----------------------+--------------------+------------------+
+| casual        |  -179.44903388417762 |  -160.90974788149612 | 1.6218307781127719 |           389725 |
+| member        |   29.879808679025018 |   30.016864030609934 | 1.7502884201745363 |         14056749 |
++---------------+----------------------+----------------------+--------------------+------------------+
++--------+------------------+----------+
+| gender | transformed_FEAT |   f0_    |
++--------+------------------+----------+
+| Male   |                2 | 10788959 |
+| Female |                1 |  3657515 |
++--------+------------------+----------+
+
+******* Need to calculate the mean *******
 
 
 
 
 
+
+# [TWO_SAMPLE_TESTS (z-statistic ONLY) RESULTS
+# [TWO_SAMPLE_TEST (z-statistic ONLY): testing significance between two categorical features by comparing the means of another numerical feature]
+# Determine if two categorical features have statistically different means for another numerical feature
+
+# Does being a member signify that trip_time is significantly different than being a casual user?
+
+Categorical feature:
+member_casual where variables are 'member' and 'casual'
+Numerical feature:
+trip_distance
++----------------------+-----------------------+-------------------+-------------------+-----------+-----------+----------------------+
+|      samp1_mean      |      samp2_mean       |     samp1_std     |     samp2_std     | samp1_len | samp2_len | z_critical_twosample |
++----------------------+-----------------------+-------------------+-------------------+-----------+-----------+----------------------+
+| 0.006629366046007352 | 0.0037317409782921538 | 7.410616331577896 | 5.143858840641462 |  23815154 |  11647954 |   1.3543319887486756 |
++----------------------+-----------------------+-------------------+-------------------+-----------+-----------+----------------------+
+NOT Significant
+
+Numerical feature:
+trip_time
++------------------+--------------------+--------------------+-------------------+-----------+-----------+----------------------+
+|    samp1_mean    |     samp2_mean     |     samp1_std      |     samp2_std     | samp1_len | samp2_len | z_critical_twosample |
++------------------+--------------------+--------------------+-------------------+-----------+-----------+----------------------+
+| 769.115660054099 | 2118.0848747342297 | 10493.561789157968 | 26302.32146198596 |  23815154 |  11647954 |  -168.59853112910267 |
++------------------+--------------------+--------------------+-------------------+-----------+-----------+----------------------+
+Significant
+
+Numerical feature:
+birthyear_INT
++-------------------+--------------------+-------------------+------------------+-----------+-----------+----------------------+
+|    samp1_mean     |     samp2_mean     |     samp1_std     |    samp2_std     | samp1_len | samp2_len | z_critical_twosample |
++-------------------+--------------------+-------------------+------------------+-----------+-----------+----------------------+
+| 1981.194184606503 | 1987.4188076871399 | 10.90212715989175 | 9.73753096937569 |  23815154 |  11647954 |  -1717.7515076798247 |
++-------------------+--------------------+-------------------+------------------+-----------+-----------+----------------------+
+Significant
+
+
+
+# 3. Question 1: Why would casual riders buy Cyclistic annual memberships?
+
+
+
+	# ---------------------------------------------
+	
+	# Numerical features:
+	# export samp1_FEAT_name=$(echo "birthyear_INT")
+	# Categorical features:
+	# export category_FEAT_name=$(echo "member_casual")
+	# +---------------+----------------------+----------------------+--------------------+------------------+
+	# | member_casual | z_critical_onesample | t_critical_onesample |   avg_samp1_VAR    | df_sample_number |
+	# +---------------+----------------------+----------------------+--------------------+------------------+
+	# | member        |   -75.84176670592645 |   -75.96042235114496 |  1981.194184606505 |         23815154 |
+	# | casual        |    1892.533427644269 |   2122.1930117305938 | 1987.4188076871403 |         11647954 |
+	# +---------------+----------------------+----------------------+--------------------+------------------+
+	
+# From the onesample ttest, we learned that members closer to the mean of all bike users are members. If people become older/closer to the mean age of over all bike users, they are statistically likely to be members.
+
+# people closer to the bike user mean age are likely to be members, and members are likely to be 6 years older than casual bike users
+
+# 
 
 
