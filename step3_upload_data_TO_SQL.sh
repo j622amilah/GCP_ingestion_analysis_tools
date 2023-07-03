@@ -108,7 +108,7 @@ export location=$(echo "europe-west9")  # Paris
 # ---------------------------------------------
 # ENABLE API Services
 # ---------------------------------------------
-export val=$(echo "X1")
+export val=$(echo "X0")
 
 if [[ $val == "X0" ]]
 then
@@ -177,12 +177,14 @@ then
 
     # Create a new DATASET named PROJECT_ID
     # export dataset_name=$(echo "google_analytics")
+    # export dataset_name=$(echo "google_analytics_exercise")
     # bq --location=$location mk $PROJECT_ID:$dataset_name
 
     # OR 
 
     # Use existing dataset
-    export dataset_name=$(echo "google_analytics")
+    # export dataset_name=$(echo "google_analytics")
+    export dataset_name=$(echo "google_analytics_exercise")
 
     # ------------------------
 
@@ -221,17 +223,23 @@ fi
 
 # ---------------------------------------------
 
-
+# ******* CHANGE *******
+# 0. Enter the folder path of the csv files to upload to GCP
 # export cur_path=$(echo "/home/oem2/Documents/ONLINE_CLASSES/Spécialisation_Google_Data_Analytics/3_Google_Data_Analytics_Capstone_Complete_a_Case_Study/ingestion_folder/csvdata/exact_match_header")
-export cur_path=$(echo "/home/oem2/Documents/ONLINE_CLASSES/Spécialisation_Google_Data_Analytics/3_Google_Data_Analytics_Capstone_Complete_a_Case_Study/ingestion_folder/csvdata/similar_match_header/exact_match_header")
+
+# export cur_path=$(echo "/home/oem2/Documents/ONLINE_CLASSES/Spécialisation_Google_Data_Analytics/3_Google_Data_Analytics_Capstone_Complete_a_Case_Study/ingestion_folder/csvdata/similar_match_header/exact_match_header")
+
+export cur_path=$(echo "/home/oem2/Documents/ONLINE_CLASSES/Spécialisation_Google_Data_Analytics/3_Google_Data_Analytics_Capstone_Complete_a_Case_Study/ingestion_folder_exercise/csvdata")
+# ******* CHANGE *******
+
 echo "cur_path"
 echo $cur_path
     
 
 # ---------------------------------------------
-    
-
-export val=$(echo "X1")
+   
+# Uploads a folder of csv files to GCP
+export val=$(echo "X0")
 
 if [[ $val == "X0" ]]
 then 
@@ -249,21 +257,29 @@ then
     fi
     
     # Get list of csv files
-    ls  | sed 's/file_list_names//g' | sed '/^$/d' >> file_list_names
+    ls  | sed 's/file_list_names//g' | sed 's/.csv//g' | sed '/^$/d' >> file_list_names
     
     
     # Generic name of tables
     export Generic_CSV_FILENAME=$(cat file_list_names | head -n 1 | sed 's/.csv//g' | tr -d [0-9] | sed 's/-//g' | sed 's/  */ /g' | sed 's/^ *//g' | tr '[:upper:]' '[:lower:]' | sed -e '/[[:space:]]\+$/s///' | sed 's/[[:space:]]/_/g')
+    echo "Generic_CSV_FILENAME: "
+    echo $Generic_CSV_FILENAME 
     
     # Load CSV file into a BigQuery table FROM PC
     cnt=0
     for CSV_NAME in $(cat file_list_names)
     do
-       # cut off .csv from the filename
-       #export CSV_FILENAME=${CSV_NAME/.csv/}
-       # export TABLE_name=$(echo "${CSV_FILENAME}${cnt}")
+       # ******* CHANGE *******
+       # 0. Enter the name of the table to upload to GCP
        
-       export TABLE_name=$(echo "${Generic_CSV_FILENAME}bday${cnt}")
+       # Table name choices:
+       # a) Use the csv file names directly
+       # cut off .csv from the filename
+       export CSV_FILENAME=$CSV_NAME
+       
+       # b) Use a common name for all the csv files, put a counter to distinguish each file : this is necessary for UNION-ing the tables
+       # export TABLE_name=$(echo "${Generic_CSV_FILENAME}bday${cnt}")
+       # ******* CHANGE *******
        
        # Need to save a list of TABLE_name, to do the UNION query next
         echo $TABLE_name >> table_list_names

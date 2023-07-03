@@ -713,6 +713,17 @@ CLEAN_TABLE_bikeshare_full_clean1
 
 # TYPE A RESULTS : probability of a categorical event happening 
 
+# Additive rule of probability: P(A or B) = P(A) + P(B) - P(A and B)
+# Multiplicative rule of probability: P(A and B) = P(A) * P(B)
+# Example of how to use table: Compute the probability of category [member_casual=member and rideable_type=electric_bike]
+# (Reponse) [member_casual=member and rideable_type=electric_bike, gender=Female] + [member_casual=member and rideable_type=electric_bike, ]
+# P(2 or 4 or 5) = P(2) + P(4) + P(5)
+1/6 + 1/6 + 1/6 
+
+% Exercise 2: Compute the probability of being a member and male
+% (Reponse) (1/6) * (1/6)
+# P(2 and 6) = P(2) * P(6)
+
 export val=$(echo "X0")
 
 if [[ $val == "X0" ]]
@@ -873,7 +884,7 @@ fi
 # ---------------------------------------------
 
 
-
+I am working on the bike casestudy, and I managed to UNION all the tables into two distinct tables on Google Cloud Platform. Afterwards, I JOINed the tables and reduced features to 2 categorical (rideable_type, gender) and 3 numerical (trip_distance, trip_time, birthyear_INT) features. I was able to calculate one sample and two sample z-statistics for the numerical features. The probability of occurrence for the categorical features were calculated. The results show that member statistically have shorter trip_time than casual users, also members are statistically older than casual users by 6 years. In terms of occurrence, men are more likely to be members than women because more men use bikes. Classic and electric bikes tend to be used more by members than casual members. Based on these statistics, casual riders might buy annual membership if they grow older, have an age similar to the average age of membership. Similarly, casual riders might buy membership if they start to desire to do short trip time sessions, or have a preference for classic or electric bikes . Digital media about a short organized trip routes, usage of classic or electric bikes, and marketing for young adults might help casual users to become members; members like short trip time sessions and classic or electric bikes. Also, young adults are less likely to be members so special marketing to non-likely member candidates may encourage them to join thus gaining more money for Cyclistic; older adults are already motivated to be members so they need little to no marketing. The next step is to determine which model best predicts membership versus casual usage, using the narrowed down features. One question that I had and solved was aligning the table such that NULL values are minimized.
 
 
 # ---------------------------------------------

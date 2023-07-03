@@ -552,21 +552,22 @@ Significant
 
 # 3. Question 1: Why would casual riders buy Cyclistic annual memberships?
 
+percentage/ 
++---------------+---------------+--------+----------------------+
+| member_casual | rideable_type | gender |         f0_          |
++---------------+---------------+--------+----------------------+
+| casual        | NULL          | Female | 0.004766284784788248 |
+| casual        | NULL          | Male   | 0.007837291891818123 |
+| casual        | classic_bike  | NULL   |  0.07631614844398663 |
+| casual        | docked_bike   | NULL   | 0.053838365956834694 |
+| casual        | electric_bike | NULL   |  0.08795399798808465 |
+| member        | NULL          | Female |  0.11351653194069242 |
+| member        | NULL          | Male   |    0.341074048199945 |
+| member        | classic_bike  | NULL   |  0.13873474545997969 |
+| member        | docked_bike   | NULL   |  0.05886766925239551 |
+| member        | electric_bike | NULL   |    0.117094916081475 |
++---------------+---------------+--------+----------------------+
 
-
-	# ---------------------------------------------
-	
-	# Numerical features:
-	# export samp1_FEAT_name=$(echo "birthyear_INT")
-	# Categorical features:
-	# export category_FEAT_name=$(echo "member_casual")
-	# +---------------+----------------------+----------------------+--------------------+------------------+
-	# | member_casual | z_critical_onesample | t_critical_onesample |   avg_samp1_VAR    | df_sample_number |
-	# +---------------+----------------------+----------------------+--------------------+------------------+
-	# | member        |   -75.84176670592645 |   -75.96042235114496 |  1981.194184606505 |         23815154 |
-	# | casual        |    1892.533427644269 |   2122.1930117305938 | 1987.4188076871403 |         11647954 |
-	# +---------------+----------------------+----------------------+--------------------+------------------+
-	
 # From the onesample ttest, we learned that members closer to the mean of all bike users are members. If people become older/closer to the mean age of over all bike users, they are statistically likely to be members.
 
 # people closer to the bike user mean age are likely to be members, and members are likely to be 6 years older than casual bike users

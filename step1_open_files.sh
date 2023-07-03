@@ -3,23 +3,29 @@
 # ./step1_open_files.sh
 
 
+clear
 
-export cur_path=$(pwd)
-echo "cur_path"
-echo $cur_path
-
-export folder_2_organize=$(echo "bike_casestudy/dataORG")
-echo "folder_2_organize"
-echo $folder_2_organize
-
-export path_folder_2_organize=$(echo "${cur_path}/${folder_2_organize}")
+# ******* CHANGE *******
+# 0. Enter path where the zip files are located
+export path_folder_2_organize=$(echo "/home/oem2/Documents/ONLINE_CLASSES/Spécialisation_Google_Data_Analytics/3_Google_Data_Analytics_Capstone_Complete_a_Case_Study/exercise_casestudy")
 
 
-export ingestion_folder=$(echo "ingestion_folder")
-echo "ingestion_folder"
-echo $ingestion_folder
+# 1. Name the folder that one wishes to put the files in
+# export ingestion_folder=$(echo "ingestion_folder_bikeshare")
+export ingestion_folder=$(echo "ingestion_folder_exercise")
+echo "ingestion_folder_exercise"
+echo $ingestion_folder_exercise
 
-export path_ingestion_folder=$(echo "${cur_path}/${ingestion_folder}")
+
+# 2. Enter the path where the ingestion folder should be located
+export path_ingestion_folder=$(echo "/home/oem2/Documents/ONLINE_CLASSES/Spécialisation_Google_Data_Analytics/3_Google_Data_Analytics_Capstone_Complete_a_Case_Study/$ingestion_folder")
+# ******* 
+
+
+
+
+
+
 
 
 
@@ -99,6 +105,9 @@ then
     
     # find folders inside of the folder to search
     cd $path_ingestion_folder
+    
+    # Rename all the files so they do not have any spaces
+    for f in *\ *; do mv "$f" "${f// /_}"; done
     
     # write folder names in file
     ls -d */ >> folder_list
