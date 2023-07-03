@@ -8,20 +8,101 @@ clear
 
 
 
-# ---------------------------------------------
-# Data Ingestion
-# ---------------------------------------------
-# 0. GCP : 
-#     - 0: download zip data from AWS bucket to PC - get desired csv files - load csv to cloud to many temporary tables - Append all the temporary tables into one Table on a certain column (UNION ALL ) - delete the temporary tables - save the unioned table  
-    
-#     - 1: download zip data from AWS bucket to PC - upload csv to GCP bucket - use cloud dataprep 
+# ---------------------------
+# Functions START
+# ---------------------------
+
+upload_csv_files(){
+	
+    # Inputs:
+    # $1 = location
+    # $2 = cur_path
+    # $3 = dataset_name
 
 
-# AWS :
-#     - 0: download zip data from AWS bucket to PC - upload csv to AWS bucket -
+    cd $2
     
     
+    if [ -f file_list_names ]; then
+       rm file_list_names
+    fi
+  
+    if [ -f table_list_names ]; then
+       rm table_list_names
+    fi
     
+    # Get list of csv files : do not remove the .csv for bq load
+    ls  | sed 's/file_list_names//g' | sed '/^$/d' >> file_list_names
+    
+    
+    # Generic name of tables
+    export Generic_CSV_FILENAME=$(cat file_list_names | head -n 1 | sed 's/.csv//g' | tr -d [0-9] | sed 's/-//g' | sed 's/  */ /g' | sed 's/^ *//g' | tr '[:upper:]' '[:lower:]' | sed -e '/[[:space:]]\+$/s///' | sed 's/[[:space:]]/_/g')
+    echo "Generic_CSV_FILENAME: "
+    echo $Generic_CSV_FILENAME 
+    
+    # Load CSV file into a BigQuery table FROM PC
+    cnt=0
+    for CSV_NAME in $(cat file_list_names)
+    do
+       echo "CSV_NAME: "
+       echo $CSV_NAME 
+       
+       # -----------------------------
+       # Edit csv file to prevent bq load errors : this section could get bigger
+       # -----------------------------
+       # Remove AM and PM from all csv files to prevent TIMESTAMP error : *** could be better ***
+       cat $CSV_NAME | sed 's/ AM//g' | sed 's/ PM//g' > temp_csv
+       mv temp_csv $CSV_NAME
+       # -----------------------------
+       
+       # ******* CHANGE *******
+       # 0. Enter the name of the table to upload to GCP
+       
+       # Table name choices:
+       # a) Use the csv file names directly
+       # remove the .csv from the filename
+       export TABLE_name=$(echo $CSV_NAME | sed 's/.csv//g')
+       
+       # b) Use a common name for all the csv files, put a counter to distinguish each file : this is necessary for UNION-ing the tables
+       # export TABLE_name=$(echo "${Generic_CSV_FILENAME}bday${cnt}")
+       
+       echo "TABLE_name: "
+       echo $TABLE_name
+       # ******* CHANGE *******
+       
+       # Need to save a list of TABLE_name, to do the UNION query next
+       echo $TABLE_name >> table_list_names
+       # OR
+       # Save tables to a dataset folder dedicated to one thing, and use bq ls to get table names in next query
+       
+       # BigQuery error in load operation: Cannot determine table described
+       # If you are are getting this error , it is an authentication and authorization issue, simply log out and log in again. e.g if you are using cloud shell – close it and reopen.
+       
+       # Upload with schema options: autodetect the schema fields
+        bq load \
+            --location=$1 \
+            --source_format=CSV \
+            --skip_leading_rows=1 \
+            --autodetect \
+            $3.$TABLE_name \
+            ./$CSV_NAME
+            
+        cnt=$((cnt + 1))
+       
+    done
+
+}
+
+# ---------------------------
+
+
+
+
+# ---------------------------
+# Functions END
+# ---------------------------
+
+
 
 
 # ---------------------------------------------
@@ -223,6 +304,15 @@ fi
 
 # ---------------------------------------------
 
+
+
+
+
+
+
+# ---------------------------------------------
+# Upload csv files
+# ---------------------------------------------
 # ******* CHANGE *******
 # 0. Enter the folder path of the csv files to upload to GCP
 # export cur_path=$(echo "/home/oem2/Documents/ONLINE_CLASSES/Spécialisation_Google_Data_Analytics/3_Google_Data_Analytics_Capstone_Complete_a_Case_Study/ingestion_folder/csvdata/exact_match_header")
@@ -235,6 +325,16 @@ export cur_path=$(echo "/home/oem2/Documents/ONLINE_CLASSES/Spécialisation_Goog
 echo "cur_path"
 echo $cur_path
     
+upload_csv_files $location $cur_path $dataset_name
+
+
+# ---------------------------------------------
+
+
+
+
+    
+    
 
 # ---------------------------------------------
    
@@ -245,60 +345,10 @@ if [[ $val == "X0" ]]
 then 
     echo "---------------- Query upload csv files to tables ----------------"
     
-    cd $cur_path
     
-    
-    if [ -f file_list_names ]; then
-       rm file_list_names
-    fi
-  
-    if [ -f table_list_names ]; then
-       rm table_list_names
-    fi
-    
-    # Get list of csv files
-    ls  | sed 's/file_list_names//g' | sed 's/.csv//g' | sed '/^$/d' >> file_list_names
-    
-    
-    # Generic name of tables
-    export Generic_CSV_FILENAME=$(cat file_list_names | head -n 1 | sed 's/.csv//g' | tr -d [0-9] | sed 's/-//g' | sed 's/  */ /g' | sed 's/^ *//g' | tr '[:upper:]' '[:lower:]' | sed -e '/[[:space:]]\+$/s///' | sed 's/[[:space:]]/_/g')
-    echo "Generic_CSV_FILENAME: "
-    echo $Generic_CSV_FILENAME 
-    
-    # Load CSV file into a BigQuery table FROM PC
-    cnt=0
-    for CSV_NAME in $(cat file_list_names)
-    do
-       # ******* CHANGE *******
-       # 0. Enter the name of the table to upload to GCP
-       
-       # Table name choices:
-       # a) Use the csv file names directly
-       # cut off .csv from the filename
-       export CSV_FILENAME=$CSV_NAME
-       
-       # b) Use a common name for all the csv files, put a counter to distinguish each file : this is necessary for UNION-ing the tables
-       # export TABLE_name=$(echo "${Generic_CSV_FILENAME}bday${cnt}")
-       # ******* CHANGE *******
-       
-       # Need to save a list of TABLE_name, to do the UNION query next
-        echo $TABLE_name >> table_list_names
-       # OR
-       # Save tables to a dataset folder dedicated to one thing, and use bq ls to get table names in next query
-       
-        bq load \
-            --location=$location \
-            --source_format=CSV \
-            --skip_leading_rows=1 \
-            --autodetect \
-            $dataset_name.$TABLE_name \
-            ./$CSV_NAME
-            # trip_id:string,starttime:string,stoptime:string,bikeid:string,tripduration:string,start_station_id:string,start_station_name:string,end_station_id:string,end_station_name:string,usertype:string,gender:string,birthyear:string #ride_id:string,rideable_type:string,started_at:timestamp,ended_at:timestamp,start_station_name:string,start_station_id:string,end_station_name:string,end_station_id:string,start_lat:float,start_lng:float,end_lat:float,end_lng:float,member_casual:string
-       cnt=$((cnt + 1))
-       
-    done
     
 fi
+
 
 
 # ---------------------------------------------

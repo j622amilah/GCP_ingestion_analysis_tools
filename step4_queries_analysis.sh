@@ -407,6 +407,58 @@ CLEAN_TABLE_bikeshare_full_clean1(){
 
 # ---------------------------
 
+join_multiple_tables(){
+	
+	# ride_id, rideable_type, started_at, ended_at, start_station_name, start_station_id, end_station_name, end_station_id, start_lat, start_lng, end_lat, end_lng, member_casual
+     export TABLE_name0=$(echo "bikeshare_table0")
+     
+     # trip_id, starttime, stoptime, bikeid, tripduration, start_station_id, start_station_name, end_station_id, end_station_name, usertype, gender, birthyear
+     export TABLE_name1=$(echo "bikeshare_table1")
+     
+     export TABLE_name_join=$(echo "bikeshare_full")  # ride_id_join
+
+     bq query \
+            --location=$location \
+            --destination_table $PROJECT_ID:$dataset_name.$TABLE_name_join \
+            --allow_large_results \
+            --use_legacy_sql=false \
+            'SELECT T0.ride_id, 
+            T0.rideable_type, 
+            T0.started_at, 
+            T0.ended_at, 
+            T0.start_station_name AS stsname_T0,
+            T0.start_station_id AS ssid_T0,
+            T0.end_station_name AS esname_T0,
+            T0.end_station_id AS esid_T0,
+            T0.start_lat, 
+            T0.start_lng, 
+            T0.end_lat, 
+            T0.end_lng, 
+            T0.member_casual,
+            T1.trip_id, 
+            T1.starttime, 
+            T1.stoptime, 
+            T1.bikeid, 
+            T1.tripduration, 
+            T1.start_station_id AS ssid_T1, 
+            T1.start_station_name AS stsname_T1, 
+            T1.end_station_id AS esid_T1, 
+            T1.end_station_name AS esname_T1, 
+            T1.usertype, 
+            T1.gender, 
+            T1.birthyear FROM `'$PROJECT_ID'.'$dataset_name'.dailyActivity_merged` AS T0
+FULL JOIN `'$PROJECT_ID'.'$dataset_name'.'$TABLE_name1'` AS T1 ON T0.Id = T1.Id;'   
+
+# Try 0: More unique identifier => problem: usertype, gender, birthyear are NULL for member_casual, rideable_type, which means that the Tables just do not align. Even if I stacked the tables and made a common header they would STILL not ALIGN. problem solved, there is no corresponding data.
+# FULL JOIN `'$PROJECT_ID'.'$dataset_name'.'$TABLE_name1'` AS T1 ON T0.ride_id = T1.trip_id
+# JOIN ON ride_id=trip_id DOES NOTHING because TABLE0 (member_casual, rideable_type) does not align with TABLE1 (usertype, gender, birthyear)
+
+# Try 1: Less unique identifier (does not work)
+# FULL JOIN `'$PROJECT_ID'.'$dataset_name'.'$TABLE_name1'` AS T1 ON T0.start_station_id = T1.start_station_id
+# FULL JOIN `'$PROJECT_ID'.'$dataset_name'.'$TABLE_name1'` AS T1 ON T0.end_station_id = T1.end_station_id
+# FULL JOIN `'$PROJECT_ID'.'$dataset_name'.'$TABLE_name1'` AS T1 ON T0.ride_id = T1.bikeid
+
+}
 
 # ---------------------------
 
@@ -718,13 +770,13 @@ CLEAN_TABLE_bikeshare_full_clean1
 # Example of how to use table: Compute the probability of category [member_casual=member and rideable_type=electric_bike]
 # (Reponse) [member_casual=member and rideable_type=electric_bike, gender=Female] + [member_casual=member and rideable_type=electric_bike, ]
 # P(2 or 4 or 5) = P(2) + P(4) + P(5)
-1/6 + 1/6 + 1/6 
+# 1/6 + 1/6 + 1/6 
 
-% Exercise 2: Compute the probability of being a member and male
-% (Reponse) (1/6) * (1/6)
+# Exercise 2: Compute the probability of being a member and male
+# (Reponse) (1/6) * (1/6)
 # P(2 and 6) = P(2) * P(6)
 
-export val=$(echo "X0")
+export val=$(echo "X1")
 
 if [[ $val == "X0" ]]
 then 
@@ -884,7 +936,7 @@ fi
 # ---------------------------------------------
 
 
-I am working on the bike casestudy, and I managed to UNION all the tables into two distinct tables on Google Cloud Platform. Afterwards, I JOINed the tables and reduced features to 2 categorical (rideable_type, gender) and 3 numerical (trip_distance, trip_time, birthyear_INT) features. I was able to calculate one sample and two sample z-statistics for the numerical features. The probability of occurrence for the categorical features were calculated. The results show that member statistically have shorter trip_time than casual users, also members are statistically older than casual users by 6 years. In terms of occurrence, men are more likely to be members than women because more men use bikes. Classic and electric bikes tend to be used more by members than casual members. Based on these statistics, casual riders might buy annual membership if they grow older, have an age similar to the average age of membership. Similarly, casual riders might buy membership if they start to desire to do short trip time sessions, or have a preference for classic or electric bikes . Digital media about a short organized trip routes, usage of classic or electric bikes, and marketing for young adults might help casual users to become members; members like short trip time sessions and classic or electric bikes. Also, young adults are less likely to be members so special marketing to non-likely member candidates may encourage them to join thus gaining more money for Cyclistic; older adults are already motivated to be members so they need little to no marketing. The next step is to determine which model best predicts membership versus casual usage, using the narrowed down features. One question that I had and solved was aligning the table such that NULL values are minimized.
+
 
 
 # ---------------------------------------------
