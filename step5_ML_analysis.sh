@@ -300,7 +300,7 @@ kmeans(){
             --allow_large_results \
             --use_legacy_sql=false \
     'CREATE MODEL '$3'.'$6'
-    OPTIONS(model_type="KMEANS", NUM_CLUSTERS=2, KMEANS_INIT_METHOD="KMEANS++", MAX_ITERATIONS=50, early_stop=TRUE, MIN_REL_PROGRESS=0.001, WARM_START=FALSE) AS 
+    OPTIONS(model_type="KMEANS", NUM_CLUSTERS=2, KMEANS_INIT_METHOD="KMEANS++", MAX_ITERATIONS=50, early_stop=TRUE, MIN_REL_PROGRESS=0.001, WARM_START=FALSE, DISTANCE_TYPE="COSINE") AS 
     SELECT 
     trip_time,
     (CASE WHEN rideable_type="electric_bike" then 1 WHEN rideable_type="classic_bike" then 2 WHEN rideable_type="docked_bike" then 3 WHEN rideable_type IS NULL then 3 end) AS rideable_type_INTfill, 
@@ -849,7 +849,7 @@ export TESTING_TABLE_name=$(echo "TESTING_TABLE_name")
 # detailed examples : https://cloud.google.com/bigquery/docs/logistic-regression-prediction
 
 
-export val=$(echo "X1")
+export val=$(echo "X0")
 
 if [[ $val == "X0" ]]
 then 
@@ -860,7 +860,7 @@ then
 
 
 	echo "K-means clustering: "
-	export MODEL_name=$(echo "kmeans_model2")
+	export MODEL_name=$(echo "kmeans_model_cosine")
 	bq rm -f --model $PROJECT_ID:$dataset_name.$MODEL_name
 	kmeans $location $PROJECT_ID $dataset_name $TRAIN_TABLE_name $TESTING_TABLE_name $MODEL_name
 
@@ -890,13 +890,58 @@ fi
 
 # ---------------------------------------------
 
+export val=$(echo "X0")
+
+# CENTROID 1 = member
+# one_norm from sample to centroid 1 : trip_time = y
+# trip_time AS one_norm_trip_time
+
+# one norm from sample to centroid 1 : rideable_type_INTfill = x
+# SQRT(POW(NEAREST_CENTROIDS_DISTANCE.{"CENTROID_ID":"1","DISTANCE":"2.6817689497638675"}, 2) - POW(trip_time,2) ) AS one_norm_rideable_type
+
+# Above does not generalize to n-dimensional feature space (more than 2 features)
+# To generalize: 0. use cosine similarity as a measure for closeness to the member_centroid, 1. solve for the centroid location of the member_centroid 
+
+# SQRT(( SUM(POW(trip_time,2) + POW(rideable_type_INTfill,2) + POW(birthyear_INTfill,2))/(trip_time + rideable_type_INTfill + birthyear_INTfill) )*cos(OUTPUT) )
 
 
+
+if [[ $val == "X0" ]]
+then 
+export MODEL_name=$(echo "kmeans_model_cosine")
+	bq query \
+            --location=$1 \
+            --allow_large_results \
+            --use_legacy_sql=false \
+    'SELECT *, 
+    
+    FROM ML.PREDICT(
+    MODEL '$dataset_name'.'$MODEL_name',  
+    (
+    SELECT 
+    trip_time,
+    (CASE WHEN rideable_type="electric_bike" then 1 WHEN rideable_type="classic_bike" then 2 WHEN rideable_type="docked_bike" then 3 WHEN rideable_type IS NULL then 3 end) AS rideable_type_INTfill,  
+    IF(member_casual = "member", 0, 1) AS label
+    FROM `'$PROJECT_ID'.'$dataset_name'.'$TESTING_TABLE_name'` LIMIT 10
+    )
+    	WHERE NEAREST_CENTROIDS_DISTANCE.CENTROID_ID = 1
+    	)'
+
+
+fi
 
 # ---------------------------------------------
 
 
-
+SELECT *,
+  trip_time AS one_norm_trip_time,
+  SQRT(POW(NEAREST_CENTROIDS_DISTANCE.DISTANCE, 2) - POW(trip_time,2) ) AS one_norm_rideable_type
+   FROM ML.PREDICT(MODEL `northern-eon-377721.google_analytics.kmeans_model`, (SELECT 
+    trip_time, 
+    IF(birthyear_INT IS NULL, 1981, birthyear_INT) AS birthyear_INTfill,
+    (CASE WHEN rideable_type="electric_bike" then 1 WHEN rideable_type="classic_bike" then 2 WHEN rideable_type="docked_bike" then 3 WHEN rideable_type IS NULL then 3 end) AS rideable_type_INTfill, 
+    IF(member_casual = "member", 0, 1) AS label
+    FROM `northern-eon-377721.google_analytics.TESTING_TABLE_name` LIMIT 10))
 
 
 # ---------------------------------------------
