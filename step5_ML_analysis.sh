@@ -18,7 +18,7 @@ clear
 # ---------------------------
 # REUSEABLE Queries
 # ---------------------------
-test_train_split(){
+test_train_split_equal_class_samples(){
 
     # Inputs:
     # $1 = location
@@ -111,6 +111,106 @@ test_train_split(){
      
 }
 
+
+# ---------------------------
+
+
+test_train_split_NONequal_class_samples(){
+
+    # Inputs:
+    # $1 = location
+    # $2 = PROJECT_ID
+    # $3 = dataset_name
+    # $4 = label_name
+    # $5 = train_split
+    # $6 = TRAIN_TABLE_name
+    # $7 = TESTING_TABLE_name
+    # $8 = TABLE_name
+    
+   
+    bq rm -t $PROJECT_ID:$dataset_name.$6
+    bq rm -t $PROJECT_ID:$dataset_name.$7
+    
+    # Make a random number label per class : OK
+     bq query \
+            --location=$1 \
+            --destination_table $2:$3.table_train_test_split \
+            --allow_large_results \
+            --use_legacy_sql=false \
+            'SELECT ROW_NUMBER() OVER(PARTITION BY member_casual ORDER BY RAND() DESC) AS num_row_per_class, *
+            FROM `'$2'.'$3'.'$8'`;'  
+
+     echo "Look at class balance: Take data for the minimum class count for now"
+     # Look at class balance
+     bq query \
+            --location=$1 \
+            --allow_large_results \
+            --use_legacy_sql=false \
+            'SELECT '$4', COUNT(*) FROM `'$2'.'$3'.table_train_test_split` 
+            WHERE num_row_per_class IS NOT NULL GROUP BY '$4' ORDER BY '$4' ASC;'
+
+
+     # Test dataset has equal number of class values
+     bq query \
+            --location=$1 \
+            --destination_table $2:$3.$7 \
+            --allow_large_results \
+            --use_legacy_sql=false \
+            'SELECT *
+            FROM `'$2'.'$3'.table_train_test_split`
+            WHERE num_row_per_class < (1-'$5')*(SELECT COUNT(*) FROM `'$2'.'$3'.table_train_test_split` WHERE num_row_per_class IS NOT NULL GROUP BY '$4' ORDER BY '$4' ASC LIMIT 1);' 
+
+
+
+     # Training dataset has the rest of the data regardless of class balance
+     bq query \
+            --location=$1 \
+            --destination_table $2:$3.$6 \
+            --allow_large_results \
+            --use_legacy_sql=false \
+            'SELECT *
+            FROM `'$2'.'$3'.table_train_test_split`
+            WHERE num_row_per_class > (1-'$5')*(SELECT COUNT(*) FROM `'$2'.'$3'.table_train_test_split` WHERE num_row_per_class IS NOT NULL GROUP BY '$4' ORDER BY '$4' ASC LIMIT 1);' 
+   
+     
+     # Confirmation of rows in the final tables
+     echo "Original table rows: "
+     bq query \
+            --location=$1 \
+            --allow_large_results \
+            --use_legacy_sql=false \
+            'SELECT COUNT(*)
+            FROM `'$2'.'$3'.'$8'`;'  
+            
+     echo "table_train_test_split table rows: "
+     bq query \
+            --location=$1 \
+            --allow_large_results \
+            --use_legacy_sql=false \
+            'SELECT COUNT(*)
+            FROM `'$2'.'$3'.table_train_test_split`;'  
+            
+     echo "TRAIN_TABLE_name table rows: train_split*(min_class_count*num_of_classes)"
+     bq query \
+            --location=$1 \
+            --allow_large_results \
+            --use_legacy_sql=false \
+            'SELECT COUNT(*)
+            FROM `'$2'.'$3'.'$6'`;'  
+     
+     echo "TEST_TABLE_name table rows: (1-train_split)*(min_class_count*num_of_classes) "
+     bq query \
+            --location=$1 \
+            --allow_large_results \
+            --use_legacy_sql=false \
+            'SELECT COUNT(*)
+            FROM `'$2'.'$3'.'$7'`;'  
+            
+     # Delete TABLE table_train_test_split
+     bq rm -t $PROJECT_ID:$dataset_name.table_train_test_split
+     
+}
+
 # ---------------------------
 
 
@@ -122,38 +222,60 @@ logistic_regression(){
     # $2 = PROJECT_ID
     # $3 = dataset_name
     # $4 = TRAIN_TABLE_name
-    # $5 = MODEL_name
+    # $5 = TESTING_TABLE_name
+    # $6 = MODEL_name
 	
-    
 
-	bq query \
+	# member_casual AS label
+   
+     bq query \
             --location=$1 \
             --allow_large_results \
             --use_legacy_sql=false \
-    'CREATE OR REPLACE MODEL '$3'.'$5'
+    'CREATE MODEL '$3'.'$6'
     OPTIONS(model_type="logistic_reg", LEARN_RATE_STRATEGY="CONSTANT", learn_rate=0.01, l2_reg=0.1, max_iterations=50, early_stop=TRUE, MIN_REL_PROGRESS=0.001, WARM_START=FALSE, CATEGORY_ENCODING_METHOD="DUMMY_ENCODING") AS 
     SELECT 
-    trip_time, 
-    birthyear_INT, 
-    rideable_type, 
-    member_casual AS label
+    trip_time,
+    (CASE WHEN rideable_type="electric_bike" then 1 WHEN rideable_type="classic_bike" then 2 WHEN rideable_type="docked_bike" then 3 WHEN rideable_type IS NULL then 3 end) AS rideable_type_INTfill, 
+    IF(member_casual = "member", 0, 1) AS label
+    FROM `'$2'.'$3'.'$4'`'
+   
+   
+   
+     bq query \
+            --location=$1 \
+            --allow_large_results \
+            --use_legacy_sql=false \
+    'SELECT *
+    FROM ML.EVALUATE(
+    	MODEL '$3'.'$6', 
+    (
+    SELECT 
+       trip_time,
+    (CASE WHEN rideable_type="electric_bike" then 1 WHEN rideable_type="classic_bike" then 2 WHEN rideable_type="docked_bike" then 3 WHEN rideable_type IS NULL then 3 end) AS rideable_type_INTfill,  
+    IF(member_casual = "member", 0, 1) AS label
     FROM `'$2'.'$3'.'$4'`
-   '
-   
-     
-     
-     # 0.768128518349618
-     # trip_time, birthyear_INT, rideable_type, IF(member_casual = "member", 0, 1) AS label
-   
-     # 0.77
-     # trip_time, birthyear_INT, rideable_type, gender, fin_stsID, fin_esID, trip_distance, IF(member_casual = "member", 0, 1) AS label
-     
-     # Bigquery gave a better accuracy result for the string features in comparison to a numerically transformed feature
-     # (CASE WHEN rideable_type="electric_bike" then 1 WHEN rideable_type="classic_bike" then 2 WHEN rideable_type="docked_bike" then 3 end) AS rideable_type_INT
-     
-     # Does using a string label in comparison to a numerical label make a difference?
-     # IF(member_casual = "member", 0, 1) AS label
-     # yes, the predicted data results with the TESTING dataset were different. But, the evaluation results with the TRAIN dataset were the same.
+    )
+    	)'
+ 
+ 
+ 
+ # Prédire des nouvelle etiquettes
+    bq query \
+            --location=$1 \
+            --allow_large_results \
+            --use_legacy_sql=false \
+    'SELECT *
+    FROM ML.PREDICT(
+    MODEL '$3'.'$6',  
+    (
+    SELECT 
+    trip_time,
+    (CASE WHEN rideable_type="electric_bike" then 1 WHEN rideable_type="classic_bike" then 2 WHEN rideable_type="docked_bike" then 3 WHEN rideable_type IS NULL then 3 end) AS rideable_type_INTfill,  
+    IF(member_casual = "member", 0, 1) AS label
+    FROM `'$2'.'$3'.'$5'` LIMIT 10
+    )
+    	)'
 }
 
 
@@ -161,6 +283,74 @@ logistic_regression(){
 
 
 
+kmeans(){
+
+    # Inputs:
+    # $1 = location
+    # $2 = PROJECT_ID
+    # $3 = dataset_name
+    # $4 = TRAIN_TABLE_name
+    # $5 = TESTING_TABLE_name
+    # $6 = MODEL_name
+	
+    # Bigquery needs numerical features and labels
+
+     bq query \
+            --location=$1 \
+            --allow_large_results \
+            --use_legacy_sql=false \
+    'CREATE MODEL '$3'.'$6'
+    OPTIONS(model_type="KMEANS", NUM_CLUSTERS=2, KMEANS_INIT_METHOD="KMEANS++", MAX_ITERATIONS=50, early_stop=TRUE, MIN_REL_PROGRESS=0.001, WARM_START=FALSE) AS 
+    SELECT 
+    trip_time,
+    (CASE WHEN rideable_type="electric_bike" then 1 WHEN rideable_type="classic_bike" then 2 WHEN rideable_type="docked_bike" then 3 WHEN rideable_type IS NULL then 3 end) AS rideable_type_INTfill, 
+    IF(member_casual = "member", 0, 1) AS label
+    FROM `'$2'.'$3'.'$4'`'
+   
+   
+   # Evaluate
+     bq query \
+            --location=$1 \
+            --allow_large_results \
+            --use_legacy_sql=false \
+    'SELECT *
+    FROM ML.EVALUATE(
+    	MODEL '$3'.'$6', 
+    (
+    SELECT 
+       trip_time,
+    (CASE WHEN rideable_type="electric_bike" then 1 WHEN rideable_type="classic_bike" then 2 WHEN rideable_type="docked_bike" then 3 WHEN rideable_type IS NULL then 3 end) AS rideable_type_INTfill,  
+    IF(member_casual = "member", 0, 1) AS label
+    FROM `'$2'.'$3'.'$4'`
+    )
+    	)'
+ 
+ 
+ 
+ # Prédire des nouvelle etiquettes
+    bq query \
+            --location=$1 \
+            --allow_large_results \
+            --use_legacy_sql=false \
+    'SELECT *
+    FROM ML.PREDICT(
+    MODEL '$3'.'$6',  
+    (
+    SELECT 
+    trip_time,
+    (CASE WHEN rideable_type="electric_bike" then 1 WHEN rideable_type="classic_bike" then 2 WHEN rideable_type="docked_bike" then 3 WHEN rideable_type IS NULL then 3 end) AS rideable_type_INTfill,  
+    IF(member_casual = "member", 0, 1) AS label
+    FROM `'$2'.'$3'.'$5'` LIMIT 10
+    )
+    	)'
+     
+}
+
+
+# ---------------------------
+
+
+# Unsupported dataset location europe-west9 for model BOOSTED_TREE_CLASSIFIER
 decision_tree(){
 
     # Inputs:
@@ -179,17 +369,41 @@ decision_tree(){
     OPTIONS(model_type="BOOSTED_TREE_CLASSIFIER", l2_reg = 0.01, num_parallel_tree = 8, max_tree_depth = 10, max_iterations=50, early_stop=TRUE, MIN_REL_PROGRESS=0.001, CATEGORY_ENCODING_METHOD="LABEL_ENCODING") AS 
     SELECT 
     trip_time, 
-    birthyear_INT, 
-    rideable_type, 
-    member_casual AS label
+    IF(birthyear_INT IS NULL, 1981, birthyear_INT) AS birthyear_INTfill,
+    (CASE WHEN rideable_type="electric_bike" then 1 WHEN rideable_type="classic_bike" then 2 WHEN rideable_type="docked_bike" then 3 WHEN rideable_type IS NULL then 3 end) AS rideable_type_INTfill, 
+    IF(member_casual = "member", 0, 1) AS label
     FROM `'$2'.'$3'.'$4'`
    '
-     # 0.768128518349618
-     # trip_time, birthyear_INT, rideable_type, IF(member_casual = "member", 0, 1) AS label
-   
-     # 0.77
-     # trip_time, birthyear_INT, rideable_type, gender, fin_stsID, fin_esID, trip_distance, IF(member_casual = "member", 0, 1) AS label
-     
+
+}
+
+
+# ---------------------------
+
+
+
+random_forest(){
+
+    # Inputs:
+    # $1 = location
+    # $2 = PROJECT_ID
+    # $3 = dataset_name
+    # $4 = TRAIN_TABLE_name
+    # $5 = MODEL_name
+	
+	
+	bq query \
+            --location=$1 \
+            --allow_large_results \
+            --use_legacy_sql=false \
+    'CREATE OR REPLACE MODEL '$3'.'$5'
+    OPTIONS(model_type="RANDOM_FOREST_CLASSIFIER", l2_reg = 0.01, num_parallel_tree=8, max_tree_depth = 10, max_iterations=50, early_stop=TRUE, MIN_REL_PROGRESS=0.001, INPUT_LABEL_COLS=["member_casual"]) AS 
+    SELECT 
+    trip_time, 
+    IF(birthyear_INT IS NULL, 1981, birthyear_INT) AS birthyear_INTfill,
+    (CASE WHEN rideable_type="electric_bike" then 1 WHEN rideable_type="classic_bike" then 2 WHEN rideable_type="docked_bike" then 3 WHEN rideable_type IS NULL then 3 end) AS rideable_type_INTfill
+    FROM `'$2'.'$3'.'$4'`
+   '
 
 }
 
@@ -216,8 +430,8 @@ deep_neural_network(){
     'CREATE MODEL '$2'.'$3'.'$5'
     OPTIONS(MODEL_TYPE="DNN_CLASSIFIER", INPUT_LABEL_COLS = ["member_casual"]) 
     AS SELECT 
-    trip_time, 
-    birthyear_INT
+    IF(birthyear_INT IS NULL, 1981, birthyear_INT) AS birthyear_INTfill,
+    (CASE WHEN rideable_type="electric_bike" then 1 WHEN rideable_type="classic_bike" then 2 WHEN rideable_type="docked_bike" then 3 WHEN rideable_type IS NULL then 3 end) AS rideable_type_INTfill
     FROM `'$2'.'$3'.'$4'`;'
     
     # OPTIONS(model_type="DNN_CLASSIFIER", ACTIVATION_FN="RELU", HIDDEN_UNITS = [256, 128, 64], learn_rate=0.01, max_iterations=50, early_stop=TRUE, MIN_REL_PROGRESS=0.001, OPTIMIZER="ADAGRAD", l2_reg = 0.01, TF_VERSION="2.8.0", ENABLE_GLOBAL_EXPLAIN=TRUE, INPUT_LABEL_COLS = ["member_casual"]) AS 
@@ -255,7 +469,8 @@ autoML_model(){
     OPTIONS(MODEL_TYPE="AUTOML_CLASSIFIER", INPUT_LABEL_COLS = ["member_casual"], OPTIMIZATION_OBJECTIVE="MAXIMIZE_AU_ROC") 
     AS SELECT 
     trip_time, 
-    birthyear_INT
+    IF(birthyear_INT IS NULL, 1981, birthyear_INT) AS birthyear_INTfill,
+    (CASE WHEN rideable_type="electric_bike" then 1 WHEN rideable_type="classic_bike" then 2 WHEN rideable_type="docked_bike" then 3 WHEN rideable_type IS NULL then 3 end) AS rideable_type_INTfill
     FROM `'$2'.'$3'.'$4'`;'
     
     
@@ -269,7 +484,7 @@ autoML_model(){
 # evaluate_the_model $location $PROJECT_ID $dataset_name $MODEL_name $TRAIN_TABLE_name
 evaluate_the_model(){
 
-    # Évaluer le performance de modele avec ML.EVALUATE : exemple 0
+    # EVALUATE expects that column 'label' is a STRING, but type was INT64
 	
     # Inputs:
     # $1 = location
@@ -287,11 +502,10 @@ evaluate_the_model(){
     FROM ML.EVALUATE(MODEL '$3'.'$4', (
        SELECT 
        trip_time, 
-       birthyear_INT, 
-       rideable_type, 
+       IF(birthyear_INT IS NULL, 1981, birthyear_INT) AS birthyear_INTfill,
+    (CASE WHEN rideable_type="electric_bike" then 1 WHEN rideable_type="classic_bike" then 2 WHEN rideable_type="docked_bike" then 3 WHEN rideable_type IS NULL then 3 end) AS rideable_type_INTfill, 
        member_casual AS label
     FROM `'$2'.'$3'.'$5'`
-    
     ))'
     
 }
@@ -318,9 +532,9 @@ predict_model(){
     MODEL '$3'.'$5',  
     (SELECT 
     trip_time, 
-    birthyear_INT, 
-    rideable_type, 
-    member_casual AS label
+    IF(birthyear_INT IS NULL, 1981, birthyear_INT) AS birthyear_INTfill,
+    (CASE WHEN rideable_type="electric_bike" then 1 WHEN rideable_type="classic_bike" then 2 WHEN rideable_type="docked_bike" then 3 WHEN rideable_type IS NULL then 3 end) AS rideable_type_INTfill, 
+    IF(member_casual = "member", 0, 1) AS label
     FROM `'$2'.'$3'.'$4'` LIMIT 10)
     )'
 }
@@ -619,51 +833,59 @@ export train_split=$(echo "0.75")
 export TRAIN_TABLE_name=$(echo "TRAIN_TABLE_name")
 export TESTING_TABLE_name=$(echo "TESTING_TABLE_name")
 
-# Creates two class balanced randomized tables (TRAIN_TABLE_name, TEST_TABLE_name) from TABLE_name using the train_split value 
-# test_train_split $location $PROJECT_ID $dataset_name $label_name $train_split $TRAIN_TABLE_name $TESTING_TABLE_name $TABLE_name
+# Downsampling : Creates two class balanced randomized tables (TRAIN_TABLE_name, TEST_TABLE_name) from TABLE_name using the train_split value 
+# test_train_split_equal_class_samples $location $PROJECT_ID $dataset_name $label_name $train_split $TRAIN_TABLE_name $TESTING_TABLE_name $TABLE_name
 
-
+# Model weights : The test data is equally divided by class, but the train data contains the rest (the model weights can be used to account for class imbalance)
+# test_train_split_NONequal_class_samples $location $PROJECT_ID $dataset_name $label_name $train_split $TRAIN_TABLE_name $TESTING_TABLE_name $TABLE_name
 
 
 
 # -------------------------
-# Logistic Regression on Train dataset
+# Train the model, evaluate, predict
 # -------------------------
 # Creates a model called MODEL_name in the dataset folder, that is trained using the TRAIN_TABLE_name table
+# https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-create-automl
+# detailed examples : https://cloud.google.com/bigquery/docs/logistic-regression-prediction
 
-echo "Logistic regression classification: "
-export MODEL_name=$(echo "logistic_reg_model")
-bq rm -f --model $PROJECT_ID:$dataset_name.$MODEL_name    # https://cloud.google.com/bigquery/docs/deleting-models
 
-logistic_regression $location $PROJECT_ID $dataset_name $TRAIN_TABLE_name $MODEL_name
-evaluate_the_model $location $PROJECT_ID $dataset_name $MODEL_name $TRAIN_TABLE_name
-predict_model $location $PROJECT_ID $dataset_name $TESTING_TABLE_name $MODEL_name
+export val=$(echo "X1")
 
-echo "Decision tree classification: "
-export MODEL_name=$(echo "decision_tree_model")
-bq rm -f --model $PROJECT_ID:$dataset_name.$MODEL_name 
-decision_tree $location $PROJECT_ID $dataset_name $TRAIN_TABLE_name $MODEL_name
-evaluate_the_model $location $PROJECT_ID $dataset_name $MODEL_name $TRAIN_TABLE_name
-predict_model $location $PROJECT_ID $dataset_name $TESTING_TABLE_name $MODEL_name
+if [[ $val == "X0" ]]
+then 
+	echo "Logistic regression classification: "
+	export MODEL_name=$(echo "logistic_reg_model")
+	bq rm -f --model $PROJECT_ID:$dataset_name.$MODEL_name    # https://cloud.google.com/bigquery/docs/deleting-models
+	logistic_regression $location $PROJECT_ID $dataset_name $TRAIN_TABLE_name $MODEL_name
 
-echo "Deep neural network classification: "
-export MODEL_name=$(echo "DNN_model")
-bq rm -f --model $PROJECT_ID:$dataset_name.$MODEL_name 
-deep_neural_network $location $PROJECT_ID $dataset_name $TRAIN_TABLE_name $MODEL_name
-evaluate_the_model $location $PROJECT_ID $dataset_name $MODEL_name $TRAIN_TABLE_name
-predict_model $location $PROJECT_ID $dataset_name $TESTING_TABLE_name $MODEL_name
 
-echo "AutoML classification: "
-export MODEL_name=$(echo "AutoML_model")
-bq rm -f --model $PROJECT_ID:$dataset_name.$MODEL_name 
-autoML_model $location $PROJECT_ID $dataset_name $TRAIN_TABLE_name $MODEL_name
-evaluate_the_model $location $PROJECT_ID $dataset_name $MODEL_name $TRAIN_TABLE_name
-predict_model $location $PROJECT_ID $dataset_name $TESTING_TABLE_name $MODEL_name
+	echo "K-means clustering: "
+	export MODEL_name=$(echo "kmeans_model2")
+	bq rm -f --model $PROJECT_ID:$dataset_name.$MODEL_name
+	kmeans $location $PROJECT_ID $dataset_name $TRAIN_TABLE_name $TESTING_TABLE_name $MODEL_name
 
-# Print information about model
-# echo "Model information: "
-# get_trial_info $location $dataset_name $MODEL_name
 
+	# Problems: none of the models give a result except for logistic regression
+
+	# echo "Decision tree classification: "
+	# export MODEL_name=$(echo "decision_tree_model")
+	# bq rm -f --model $PROJECT_ID:$dataset_name.$MODEL_name 
+	# decision_tree $location $PROJECT_ID $dataset_name $TRAIN_TABLE_name $MODEL_name
+
+	# echo "Deep neural network classification: "
+	# export MODEL_name=$(echo "DNN_model")
+	# bq rm -f --model $PROJECT_ID:$dataset_name.$MODEL_name 
+	# deep_neural_network $location $PROJECT_ID $dataset_name $TRAIN_TABLE_name $MODEL_name
+
+	# echo "AutoML classification: "
+	# export MODEL_name=$(echo "AutoML_model")
+	# bq rm -f --model $PROJECT_ID:$dataset_name.$MODEL_name 
+	# autoML_model $location $PROJECT_ID $dataset_name $TRAIN_TABLE_name $MODEL_name
+
+	# Print information about model
+	# echo "Model information: "
+	# get_trial_info $location $dataset_name $MODEL_name
+fi
 
 
 # ---------------------------------------------
