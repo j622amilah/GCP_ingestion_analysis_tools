@@ -877,7 +877,7 @@ fi
 # ---------------------------------------------
 # export TABLE_name=$(echo "bikeshare_full")
 # export TABLE_name=$(echo "bikeshare_full_clean0")
-# export TABLE_name=$(echo "bikeshare_full_clean1")
+
 # VIEW_the_columns_of_a_table $location $PROJECT_ID $dataset_name $TABLE_name 
 
 
@@ -893,7 +893,7 @@ fi
 
 # Create TABLE bikeshare_full_clean1
 # CLEAN_TABLE_bikeshare_full_clean1
-
+export TABLE_name=$(echo "bikeshare_full_clean1")
 
 
 
@@ -918,8 +918,6 @@ export val=$(echo "X1")
 
 if [[ $val == "X0" ]]
 then 
-    
-    export TABLE_name=$(echo "bikeshare_full_clean1")
     
     export TABLE_name_probcount=$(echo "bikeshare_full_clean1_CATprobcount")
 
@@ -961,7 +959,6 @@ export val=$(echo "X1")
 
 if [[ $val == "X0" ]]
 then 
-	export TABLE_name=$(echo "bikeshare_full_clean1")
 	
 	declare -a NUM_FEATS=('trip_distance' 'trip_time' 'birthyear_INT');
 	
@@ -991,7 +988,6 @@ export val=$(echo "X1")
 
 if [[ $val == "X0" ]]
 then 
-	export TABLE_name=$(echo "bikeshare_full_clean1")
 	
 	# ********* CHANGE *********
 	echo "Categorical feature:"
@@ -1025,7 +1021,6 @@ export val=$(echo "X1")
 
 if [[ $val == "X0" ]]
 then 
-	export TABLE_name=$(echo "bikeshare_full_clean1")
 	
 	declare -a NUM_FEATS=('trip_distance' 'trip_time' 'birthyear_INT');
 	
@@ -1058,13 +1053,14 @@ fi
 # Feature engineering
 # 0. Fill NULL values, 1. Normalize the features from 0 to 1
 # -------------------------
+export TABLE_name2=$(echo "bikeshare_full_cleanML1")
+
+
 export val=$(echo "X1")
 
 if [[ $val == "X0" ]]
 then 
 	# Types of normalization : https://cloud.google.com/bigquery/docs/reference/standard-sql/bigqueryml-syntax-standard-scaler
-	
-	export TABLE_name2=$(echo "bikeshare_full_cleanML1")
 	
 	# Ensure that OUTPUT table does not already exist
 	bq rm -t $PROJECT_ID:$dataset_name.$TABLE_name2
@@ -1095,13 +1091,12 @@ fi
 # -------------------------
 # Test Train split
 # -------------------------
-
-
-export label_name=$(echo "member_casual")
+export label_name=$(echo "label")
 export train_split=$(echo "0.75")
-export TRAIN_TABLE_name=$(echo "TRAIN_TABLE_name")
-export TESTING_TABLE_name=$(echo "TESTING_TABLE_name")
-
+export TRAIN_TABLE_name0=$(echo "TRAIN_TABLE_name0")
+export TESTING_TABLE_name0=$(echo "TESTING_TABLE_name0")
+export TRAIN_TABLE_name1=$(echo "TRAIN_TABLE_name1")
+export TESTING_TABLE_name1=$(echo "TESTING_TABLE_name1")
 
 export val=$(echo "X1")
 
@@ -1112,8 +1107,40 @@ then
 	# test_train_split_equal_class_samples $location $PROJECT_ID $dataset_name $label_name $train_split $TRAIN_TABLE_name $TESTING_TABLE_name $TABLE_name
 
 	# Model weights : The test data is equally divided by class, but the train data contains the rest (the model weights can be used to account for class imbalance)
-	test_train_split_NONequal_class_samples $location $PROJECT_ID $dataset_name $label_name $train_split $TRAIN_TABLE_name $TESTING_TABLE_name $TABLE_name2
+	test_train_split_NONequal_class_samples $location $PROJECT_ID $dataset_name $label_name $train_split $TRAIN_TABLE_name0 $TESTING_TABLE_name0 $TABLE_name2
 
+	# ****** Test Train algorithm adds a num_row_per_class column ****** BE SURE to remove this ******
+
+	# Final selection of features before ML modeling
+	bq query \
+            --location=$1 \
+            --destination_table $PROJECT_ID:$dataset_name.$TRAIN_TABLE_name1 \
+            --allow_large_results \
+            --use_legacy_sql=false \
+            'SELECT 
+            trip_time_norm,
+            birthyear_INTfill_norm,
+            rideable_type_INTfill_norm,
+            label
+            FROM `'$PROJECT_ID'.'$dataset_name'.'$TRAIN_TABLE_name0'`;'
+            
+       bq query \
+            --location=$1 \
+            --destination_table $PROJECT_ID:$dataset_name.$TESTING_TABLE_name1 \
+            --allow_large_results \
+            --use_legacy_sql=false \
+            'SELECT 
+            trip_time_norm,
+            birthyear_INTfill_norm,
+            rideable_type_INTfill_norm,
+            label
+            FROM `'$PROJECT_ID'.'$dataset_name'.'$TESTING_TABLE_name0'`;'  
+            
+            
+       # Delete unwanted data
+       bq rm -t $PROJECT_ID:$dataset_name.$TRAIN_TABLE_name0
+       bq rm -t $PROJECT_ID:$dataset_name.$TESTING_TABLE_name0
+       
 fi
 
 
@@ -1134,12 +1161,12 @@ export val=$(echo "X1")
 
 if [[ $val == "X0" ]]
 then 
-	
 	echo "K-means clustering: "
-	bq rm -f --model $PROJECT_ID:$dataset_name.$MODEL_name
-	kmeans $location $PROJECT_ID $dataset_name $TRAIN_TABLE_name $TESTING_TABLE_name $MODEL_name $PREDICTED_results_TABLE_name 
+	kmeans $location $PROJECT_ID $dataset_name $TRAIN_TABLE_name1 $TESTING_TABLE_name1 $MODEL_name $PREDICTED_results_TABLE_name 
 
 fi
+
+
 
 
 
@@ -1147,7 +1174,6 @@ fi
 # Investigate accuracy of predictions and add marketing recommendation measure for casual predictions 
 # -------------------------
 
-export val=$(echo "X1")
 
 # Use model distance to calculate : Acurracy, rank features from most to least distance from SWC_centroid for casual predicted data (pick first feature) 
 
@@ -1156,8 +1182,6 @@ export val=$(echo "X1")
 # one_norm from sample to centroid 1 : trip_time = y
 # trip_time AS one_norm_trip_time
 
-# one norm from sample to centroid 1 : rideable_type_INTfill = x
-# SQRT(POW(NEAREST_CENTROIDS_DISTANCE.{"CENTROID_ID":"1","DISTANCE":"2.6817689497638675"}, 2) - POW(trip_time,2) ) AS one_norm_rideable_type
 
 # Way 1 : Cosine similarity
 # Above does not generalize to n-dimensional feature space (more than 2 features). Goal is to use cosine similarity to know which feature/s to change such that the sample point will be re-predicted as a member class.
@@ -1173,22 +1197,73 @@ export val=$(echo "X1")
 
 #     SQRT( (SUM(POW(trip_time_norm,2), POW(birthyear_INTfill_norm,2), POW(rideable_type_INTfill_norm,2)) / POW(SUM(trip_time_norm, birthyear_INTfill_norm, rideable_type_INTfill_norm), 2) ) *cos(DISTANCE)*cos(DISTANCE) ) / (2*3) AS SWC_centroid
 
+export PREDICTED_results_TABLE_name2=$(echo "kmeans_model_cosine_PREDICTED_results_TABLE2")
+export PREDICTED_results_TABLE_name3=$(echo "kmeans_model_cosine_PREDICTED_results_TABLE3")
+
+export val=$(echo "X1")
+
 if [[ $val == "X0" ]]
 then 
+
+	echo "Unnest the prediction table: "
+	bq rm -t $PROJECT_ID:$dataset_name.$PREDICTED_results_TABLE_name2
 	
 	bq query \
             --location=$location \
+            --destination_table $PROJECT_ID:$dataset_name.$PREDICTED_results_TABLE_name2 \
             --allow_large_results \
             --use_legacy_sql=false \
-    'WITH temptab AS(
-    SELECT *
-    FROM `'$PROJECT_ID'.'$dataset_name'.'$PREDICTED_results_TABLE_name'`
+    'WITH tabtemp AS (
+    SELECT 
+    ROW_NUMBER() OVER() AS row_num,
+    T0.CENTROID_ID AS CENTROID_ID_SELECTED,
+    NCD.CENTROID_ID AS cosine_centroid_id,
+    NCD.DISTANCE AS cosine_dist,
+    T0.trip_time_norm AS trip_time_norm,
+    T0.birthyear_INTfill_norm AS birthyear_INTfill_norm,
+    T0.rideable_type_INTfill_norm AS rideable_type_INTfill_norm,
+    IF(T0.label = 0, "member", "casual") AS member_casual
+    
+    FROM `'$PROJECT_ID'.'$dataset_name'.'$PREDICTED_results_TABLE_name'` T0,
+    UNNEST(NEAREST_CENTROIDS_DISTANCE) AS NCD
     )
-    SELECT *
-    FROM temptab LIMIT 10
-    '
+    SELECT *, (row_num*0) AS zero_col 
+    FROM tabtemp'
+
 
 fi
+
+
+# ---------------------------------------------
+
+
+export val=$(echo "X1")
+
+if [[ $val == "X0" ]]
+then 
+	echo "Calculate SWC_centroid and feat_recommendation: "
+	bq rm -t $PROJECT_ID:$dataset_name.$PREDICTED_results_TABLE_name3
+	
+	# Can not save a table using a DECLARE
+	# DECLARE N INT64; SET N=3;
+	
+	bq query \
+            --location=$location \
+            --destination_table $PROJECT_ID:$dataset_name.$PREDICTED_results_TABLE_name3 \
+            --allow_large_results \
+            --use_legacy_sql=false \
+    'WITH tabtemp AS (
+   SELECT *,
+	zero_col+(SELECT AVG(SQRT((((POW(trip_time_norm,2) + POW(birthyear_INTfill_norm,2) + POW(rideable_type_INTfill_norm,2))/(POW(trip_time_norm + birthyear_INTfill_norm + rideable_type_INTfill_norm, 2)))*(cos(cosine_dist)*cos(cosine_dist)))/(2*3))) FROM `'$PROJECT_ID'.'$dataset_name'.'$PREDICTED_results_TABLE_name2'` WHERE member_casual = "member") AS SWC_centroid
+	FROM `'$PROJECT_ID'.'$dataset_name'.'$PREDICTED_results_TABLE_name2'`
+        )
+     SELECT *,
+     (CASE WHEN (SWC_centroid - trip_time_norm) > (SWC_centroid - birthyear_INTfill_norm) then "trip_time" WHEN (SWC_centroid - trip_time_norm) > (SWC_centroid - rideable_type_INTfill_norm) then "trip_time" WHEN (SWC_centroid - birthyear_INTfill_norm) > (SWC_centroid - trip_time_norm) then "birthyear" WHEN (SWC_centroid - birthyear_INTfill_norm) > (SWC_centroid - rideable_type_INTfill_norm) then "birthyear" WHEN (SWC_centroid - rideable_type_INTfill_norm) > (SWC_centroid - trip_time_norm) then "rideable_type" WHEN (SWC_centroid - rideable_type_INTfill_norm) > (SWC_centroid - birthyear_INTfill_norm) then "rideable_type" end) AS feat_recommendation
+     FROM tabtemp'
+
+fi
+
+
 
 
 # ---------------------------------------------
@@ -1198,23 +1273,110 @@ export val=$(echo "X0")
 
 if [[ $val == "X0" ]]
 then 
+	echo "Calculate recommendation based on outliers: "
+	
+		bq query \
+            --location=$location \
+            --allow_large_results \
+            --use_legacy_sql=false \
+    'WITH tabtemp AS (
+    SELECT *,
+	IF(member_casual = "casual", feat_recommendation, "no marketing") AS recommendation
+      FROM `'$PROJECT_ID'.'$dataset_name'.'$PREDICTED_results_TABLE_name3'`
+      )
+      SELECT member_casual, recommendation, COUNT(*) AS counts_of_recommendations
+      FROM tabtemp
+      GROUP BY member_casual, recommendation
+      '
+
+fi
+
+
+
+# ---------------------------------------------
+
+
+# Query non structured data: Calculate overall Accuracy 
+export val=$(echo "X1")
+
+if [[ $val == "X0" ]]
+then 
 	
 	bq query \
             --location=$location \
             --allow_large_results \
             --use_legacy_sql=false \
-    'DECLARE CENTROID_ID, DISTANCE INT64;
-    SET (CENTROID_ID, DISTANCE) = (SELECT AS STRUCT NEAREST_CENTROIDS_DISTANCE FROM `'$PROJECT_ID'.'$dataset_name'.'$PREDICTED_results_TABLE_name'`);
-    
-    SELECT trip_time_norm, birthyear_INTfill_norm, rideable_type_INTfill_norm, label, CENTROID_ID
+    'WITH tabtemp AS (
+    SELECT IF(CENTROID_ID=2, 0, 1) AS predicted, trip_time_norm, birthyear_INTfill_norm, rideable_type_INTfill_norm, label 
     FROM `'$PROJECT_ID'.'$dataset_name'.'$PREDICTED_results_TABLE_name'`
-    LIMIT 10
-    '
-
+    )
+    SELECT (1 - AVG(label - predicted ))*100 AS Accuracy FROM tabtemp'
+   
+   # +------------------+
+   # |     Accuracy     |
+   # +------------------+
+   # | 98.2504964939843 |
+   # +------------------+
 fi
 
 
-# VIEW_the_columns_of_a_table $location $PROJECT_ID $dataset_name $PREDICTED_results_TABLE_name 
+# ---------------------------------------------
+
+
+
+export val=$(echo "X1")
+
+if [[ $val == "X0" ]]
+then 
+	
+		
+	# Scalar : steps - calculate equivalent centroid location
+	# SQRT( (SUM(POW(trip_time_norm,2), POW(birthyear_INTfill_norm,2), POW(rideable_type_INTfill_norm,2)) / POW(SUM(trip_time_norm, birthyear_INTfill_norm, rideable_type_INTfill_norm), 2) ) *cos(cosine_dist)*cos(cosine_dist) ) / (2*N) AS SWC_centroid
+
+	# recalculate distance using centroid to see if I get the same as cosine_dist for Centroid_id=2 only
+	# Centroid_id=2 is member cluster, Centroid_id=1 is casual cluster
+
+	# ACOS( ((N*SWC_centroid)*SUM(trip_time_norm,birthyear_INTfill_norm,rideable_type_INTfill_norm)) / ( SQRT( N*POW(SWC_centroid,2) ) * SQRT( SUM(POW(trip_time_norm,2), POW(birthyear_INTfill_norm,2), POW(rideable_type_INTfill_norm,2))) ) ) AS cosine_dist_recalc_w_SWC_centroid
+
+
+
+	# Way 0 : change one of trip_time_norm, birthyear_INTfill_norm, rideable_type_INTfill_norm and recalculate cosine_dist_recalc_w_SWC_centroid
+
+	# ACOS( ((N*SWC_centroid)*SUM(trip_time_norm-perturb,birthyear_INTfill_norm,rideable_type_INTfill_norm)) / ( SQRT( N*POW(SWC_centroid,2) ) * SQRT( SUM(POW(trip_time_norm-perturb,2), POW(birthyear_INTfill_norm,2), POW(rideable_type_INTfill_norm,2))) ) ) AS cosine_dist_recalc_w_SWC_centroid0
+
+	# ACOS( ((N*SWC_centroid)*SUM(trip_time_norm-perturb,birthyear_INTfill_norm-perturb,rideable_type_INTfill_norm)) / ( SQRT( N*POW(SWC_centroid,2) ) * SQRT( SUM(POW(trip_time_norm-perturb,2), POW(birthyear_INTfill_norm-perturb,2), POW(rideable_type_INTfill_norm,2))) ) ) AS cosine_dist_recalc_w_SWC_centroid1
+
+	# ACOS( ((N*SWC_centroid)*SUM(trip_time_norm-perturb,birthyear_INTfill_norm,rideable_type_INTfill_norm-perturb)) / ( SQRT( N*POW(SWC_centroid,2) ) * SQRT( SUM(POW(trip_time_norm-perturb,2), POW(birthyear_INTfill_norm,2), POW(rideable_type_INTfill_norm-perturb,2))) ) ) AS cosine_dist_recalc_w_SWC_centroid2
+
+
+	# diff0 = cosine_dist_recalc_w_SWC_centroid - cosine_dist_recalc_w_SWC_centroid0
+	# diff1 = cosine_dist_recalc_w_SWC_centroid - cosine_dist_recalc_w_SWC_centroid1
+	# diff2 = cosine_dist_recalc_w_SWC_centroid - cosine_dist_recalc_w_SWC_centroid2 
+
+	# Choose the minimum of the differences: the most similiar after a downward perturbation was influenced the most, so it could be a significant/sensitive feature to change 
+	# feat_recommendation = argmin(diff0, diff1, diff2)
+
+
+	# Way 1 :
+	# The one that is furthest away from SWC_centroid  -scalar
+	diff0 = SWC_centroid - trip_time_norm
+	# diff1 = SWC_centroid - birthyear_INTfill_norm
+	# diff2 = SWC_centroid - rideable_type_INTfill_norm
+
+	# The feature point that is furthest away from the member cluster_equivalent could be a significant feature to change
+	# feat_recommendation = argmax(diff0, diff1, diff2)
+
+	# IF(diff0 > diff1 AND diff2, "trip_time", IF(diff1 > diff2, "birthyear", "rideable_type"))
+
+
+	# IF(member_casual = "casual", feat_recommendation, "no marketing") AS recommendation
+	
+fi
+
+
+# ---------------------------------------------
+
+
 
 # ---------------------------------------------
 
@@ -1257,7 +1419,7 @@ then
     bq rm -f --model $PROJECT_ID:$dataset_name.kmeans_model
     bq rm -f --model $PROJECT_ID:$dataset_name.kmeans_model2
     bq rm -f --model $PROJECT_ID:$dataset_name.kmeans_model_cosine
-    bq rm -t $PROJECT_ID:$dataset_name.bikeshare_full_cleanML1
+    bq rm -t $PROJECT_ID:$dataset_name.TRAIN_TABLE_name
     
 fi
 

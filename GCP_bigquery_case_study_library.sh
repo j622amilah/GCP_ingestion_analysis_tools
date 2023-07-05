@@ -291,7 +291,7 @@ test_train_split_equal_class_samples(){
     # $5 = train_split
     # $6 = TRAIN_TABLE_name
     # $7 = TESTING_TABLE_name
-    # $8 = TABLE_name
+    # $8 = TABLE_name2
     
    
     bq rm -t $2:$3.$6
@@ -303,7 +303,7 @@ test_train_split_equal_class_samples(){
             --destination_table $2:$3.table_train_test_split \
             --allow_large_results \
             --use_legacy_sql=false \
-            'SELECT ROW_NUMBER() OVER(PARTITION BY member_casual ORDER BY RAND() DESC) AS num_row_per_class, *
+            'SELECT ROW_NUMBER() OVER(PARTITION BY label ORDER BY RAND() DESC) AS num_row_per_class, *
             FROM `'$2'.'$3'.'$8'`;'  
 
      echo "Look at class balance: Take data for the minimum class count for now"
@@ -313,7 +313,7 @@ test_train_split_equal_class_samples(){
             --allow_large_results \
             --use_legacy_sql=false \
             'SELECT '$4', COUNT(*) FROM `'$2'.'$3'.table_train_test_split` 
-            WHERE num_row_per_class IS NOT NULL GROUP BY '$4' ORDER BY '$4' ASC;'
+            WHERE num_row_per_class IS NOT NULL GROUP BY '$4' ORDER BY COUNT(*) ASC;'
 
      # Data could be cut to preserve class balance using the WHERE statement
      bq query \
@@ -323,7 +323,7 @@ test_train_split_equal_class_samples(){
             --use_legacy_sql=false \
             'SELECT *
             FROM `'$2'.'$3'.table_train_test_split`
-            WHERE num_row_per_class < '$5'*(SELECT COUNT(*) FROM `'$2'.'$3'.table_train_test_split` WHERE num_row_per_class IS NOT NULL GROUP BY '$4' ORDER BY '$4' ASC LIMIT 1);' 
+            WHERE num_row_per_class < '$5'*(SELECT COUNT(*) FROM `'$2'.'$3'.table_train_test_split` WHERE num_row_per_class IS NOT NULL GROUP BY '$4' ORDER BY COUNT(*) ASC LIMIT 1);' 
    
      bq query \
             --location=$1 \
@@ -332,7 +332,7 @@ test_train_split_equal_class_samples(){
             --use_legacy_sql=false \
             'SELECT *
             FROM `'$2'.'$3'.table_train_test_split`
-            WHERE num_row_per_class > '$5'*(SELECT COUNT(*) FROM `'$2'.'$3'.table_train_test_split` WHERE num_row_per_class IS NOT NULL GROUP BY '$4' ORDER BY '$4' ASC LIMIT 1) AND num_row_per_class < (SELECT COUNT(*) FROM `'$2'.'$3'.table_train_test_split` WHERE num_row_per_class IS NOT NULL GROUP BY '$4' ORDER BY '$4' ASC LIMIT 1);'  
+            WHERE num_row_per_class > '$5'*(SELECT COUNT(*) FROM `'$2'.'$3'.table_train_test_split` WHERE num_row_per_class IS NOT NULL GROUP BY '$4' ORDER BY COUNT(*) ASC LIMIT 1) AND num_row_per_class < (SELECT COUNT(*) FROM `'$2'.'$3'.table_train_test_split` WHERE num_row_per_class IS NOT NULL GROUP BY '$4' ORDER BY COUNT(*) ASC LIMIT 1);'  
      
      
      
@@ -388,7 +388,7 @@ test_train_split_NONequal_class_samples(){
     # $5 = train_split
     # $6 = TRAIN_TABLE_name
     # $7 = TESTING_TABLE_name
-    # $8 = TABLE_name
+    # $8 = TABLE_name2
     
    
     bq rm -t $2:$3.$6
@@ -400,7 +400,7 @@ test_train_split_NONequal_class_samples(){
             --destination_table $2:$3.table_train_test_split \
             --allow_large_results \
             --use_legacy_sql=false \
-            'SELECT ROW_NUMBER() OVER(PARTITION BY member_casual ORDER BY RAND() DESC) AS num_row_per_class, *
+            'SELECT ROW_NUMBER() OVER(PARTITION BY label ORDER BY RAND() DESC) AS num_row_per_class, *
             FROM `'$2'.'$3'.'$8'`;'  
 
      echo "Look at class balance: Take data for the minimum class count for now"
@@ -410,7 +410,7 @@ test_train_split_NONequal_class_samples(){
             --allow_large_results \
             --use_legacy_sql=false \
             'SELECT '$4', COUNT(*) FROM `'$2'.'$3'.table_train_test_split` 
-            WHERE num_row_per_class IS NOT NULL GROUP BY '$4' ORDER BY '$4' ASC;'
+            WHERE num_row_per_class IS NOT NULL GROUP BY '$4' ORDER BY COUNT(*) ASC;'
 
 
      # Test dataset has equal number of class values
@@ -421,7 +421,7 @@ test_train_split_NONequal_class_samples(){
             --use_legacy_sql=false \
             'SELECT *
             FROM `'$2'.'$3'.table_train_test_split`
-            WHERE num_row_per_class < (1-'$5')*(SELECT COUNT(*) FROM `'$2'.'$3'.table_train_test_split` WHERE num_row_per_class IS NOT NULL GROUP BY '$4' ORDER BY '$4' ASC LIMIT 1);' 
+            WHERE num_row_per_class < (1-'$5')*(SELECT COUNT(*) FROM `'$2'.'$3'.table_train_test_split` WHERE num_row_per_class IS NOT NULL GROUP BY '$4' ORDER BY COUNT(*) ASC LIMIT 1);' 
 
 
 
@@ -433,7 +433,7 @@ test_train_split_NONequal_class_samples(){
             --use_legacy_sql=false \
             'SELECT *
             FROM `'$2'.'$3'.table_train_test_split`
-            WHERE num_row_per_class > (1-'$5')*(SELECT COUNT(*) FROM `'$2'.'$3'.table_train_test_split` WHERE num_row_per_class IS NOT NULL GROUP BY '$4' ORDER BY '$4' ASC LIMIT 1);' 
+            WHERE num_row_per_class > (1-'$5')*(SELECT COUNT(*) FROM `'$2'.'$3'.table_train_test_split` WHERE num_row_per_class IS NOT NULL GROUP BY '$4' ORDER BY COUNT(*) ASC LIMIT 1);' 
    
      
      # Confirmation of rows in the final tables
@@ -512,7 +512,11 @@ predict_with_model(){
     # $4 = TESTING_TABLE_name
     # $5 = MODEL_name
     # $6 = PREDICTED_results_TABLE_name
-
+    
+    # Ensure that the OUTPUT TABLE does not already exist, to prevent saving errors
+    bq rm -t $2:$3.$6
+    
+    
     bq query \
             --location=$1 \
             --destination_table $2:$3.$6 \
@@ -576,8 +580,12 @@ kmeans(){
     # $7 = PREDICTED_results_TABLE_name
 	
     # Bigquery needs numerical features and labels
-
-     bq query \
+	
+    # Ensure that the OUTPUT model does not already exist, to prevent saving errors
+    bq rm -f --model $2:$3.$6
+	
+	
+    bq query \
             --location=$1 \
             --allow_large_results \
             --use_legacy_sql=false \
@@ -649,7 +657,7 @@ random_forest(){
             --allow_large_results \
             --use_legacy_sql=false \
     'CREATE OR REPLACE MODEL '$3'.'$5'
-    OPTIONS(model_type="RANDOM_FOREST_CLASSIFIER", l2_reg = 0.01, num_parallel_tree=8, max_tree_depth = 10, max_iterations=50, early_stop=TRUE, MIN_REL_PROGRESS=0.001, INPUT_LABEL_COLS=["member_casual"]) AS 
+    OPTIONS(model_type="RANDOM_FOREST_CLASSIFIER", l2_reg = 0.01, num_parallel_tree=8, max_tree_depth = 10, max_iterations=50, early_stop=TRUE, MIN_REL_PROGRESS=0.001, INPUT_LABEL_COLS=["label"]) AS 
     SELECT *
     FROM `'$2'.'$3'.'$4'`'
 
@@ -684,7 +692,7 @@ deep_neural_network(){
             --allow_large_results \
             --use_legacy_sql=false \
     'CREATE MODEL '$2'.'$3'.'$5'
-    OPTIONS(MODEL_TYPE="DNN_CLASSIFIER", INPUT_LABEL_COLS = ["member_casual"]) 
+    OPTIONS(MODEL_TYPE="DNN_CLASSIFIER", INPUT_LABEL_COLS = ["label"]) 
     AS SELECT *
     FROM `'$2'.'$3'.'$4'`'
 
@@ -718,7 +726,7 @@ autoML_model(){
             --allow_large_results \
             --use_legacy_sql=false \
     'CREATE MODEL '$2'.'$3'.'$5'
-    OPTIONS(MODEL_TYPE="AUTOML_CLASSIFIER", INPUT_LABEL_COLS = ["member_casual"], OPTIMIZATION_OBJECTIVE="MAXIMIZE_AU_ROC") 
+    OPTIONS(MODEL_TYPE="AUTOML_CLASSIFIER", INPUT_LABEL_COLS = ["label"], OPTIMIZATION_OBJECTIVE="MAXIMIZE_AU_ROC") 
     AS SELECT *
     FROM `'$2'.'$3'.'$4'`'
 
@@ -826,14 +834,19 @@ fi
 # ---------------------------------------------
 
 
-export val=$(echo "X1")
+delete_tables_using_a_list(){
 
-if [[ $val == "X0" ]]
-then 
-    
+	# Inputs:
+	# $1 = PROJECT_ID
+	# $2 = dataset_name
+	
+	
+	
     echo "---------------- Query Delete Tables ----------------"
     
-    cd /home/oem2/Documents/ONLINE_CLASSES/Spécialisation_Google_Data_Analytics/3_Google_Data_Analytics_Capstone_Complete_a_Case_Study/ingestion_folder/csvdata/exact_match_header
+    cd /home/oem2/Documents/ONLINE_CLASSES/Spécialisation_Google_Data_Analytics/3_Google_Data_Analytics_Capstone_Complete_a_Case_Study/ingestion_folder_bikeshare/csvdata/similar_match_header/exact_match_header
+    
+    # cd /home/oem2/Documents/ONLINE_CLASSES/Spécialisation_Google_Data_Analytics/3_Google_Data_Analytics_Capstone_Complete_a_Case_Study/ingestion_folder_bikeshare/csvdata/exact_match_header
     
     # put table names to be deleted in a file list
     # bq ls --format=json $PROJECT_ID:$dataset_name | jq -r .[].tableReference.tableId >> table_list_names
@@ -841,11 +854,12 @@ then
     for TABLE_name in $(cat table_list_names)
     do
        # -t signifies table
-       bq rm -t $PROJECT_ID:$dataset_name.$TABLE_name
+       bq rm -t $1:$2.$TABLE_name
     done
     
-    
-fi
+ 
+}
+
 
 # ---------------------------------------------
 
