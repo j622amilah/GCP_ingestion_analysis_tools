@@ -18,7 +18,8 @@ clear
 
 initial_setup(){
 
-    # Inputs:  
+    # Inputs: 
+    # $1 = $folder_2_organize
     # 2 csv files
     
     # Step 0: Delete any program related files
@@ -34,14 +35,8 @@ initial_setup(){
     echo "cur_path"
     echo $cur_path
     
-    # ****** CHANGE ******
-    # export folder_2_organize=$(echo "ingestion_folder/csvdata")
-    export folder_2_organize=$(echo "ingestion_folder/csvdata/similar_match_header")
-    echo "folder_2_organize"
-    echo $folder_2_organize
-    
     # Step 2: Get path of folder to search
-    export main_path=$(echo "${cur_path}/${folder_2_organize}")
+    export main_path=$(echo "${cur_path}/$1")
     echo "main_path"
     echo $main_path
     
@@ -1208,170 +1203,178 @@ evaluation_reevaluation_assignment(){
 
 
 
+run_GCP_common_header_program(){
 
 
-
-# [Step 0] Obtain a global header [tot_header] for similarily labeled datasets 
-initial_setup
-# ***** OUTPUT [file_list, Create tot_header] *****
-
-echo "-----------------------------------"
-echo "tot_header : AFTER clean_csv_header"
-cat tot_header
-echo "-----------------------------------"
+	# Inputs: 
+	# $1 = $folder_2_organize
 
 
-# Loop through the list of csv files in the directory
-for filename in $(cat file_list)
-do
-    echo "filename: "  
-    echo $filename  # (ie: 202005-divvy-tripdata.csv)
-    
-    # [Step 1: Create header2] Clean header from csv file and put in a new file
-    clean_csv_header $filename     # (ie: ride_id \n rideable_type \n started_at)
-    mv dummy_name header2
-    
-    echo "-----------------------------------"
-    echo "header2 : AFTER clean_csv_header"
-    cat header2
-    echo "-----------------------------------"
-    
-    # --------------------------
-    # [Step 2] Make temporary environmental variables for tot_header and header2
-    
-    # String list
-    echo "-----------------------------------"
-    tot_header_ev=$(cat tot_header | paste -s -d "," | tr -d '\r')
-    echo "tot_header_ev: "  
-    echo $tot_header_ev
-    echo "-----------------------------------"
-    # --------------------------
-    
-    # --------------------------
-    # String list
-    echo "-----------------------------------"
-    header2_ev=$(cat header2 | paste -s -d "," | tr -d '\r')
-    echo "header2_ev: "  
-    echo $header2_ev
-    echo "-----------------------------------"
-    # --------------------------
-    
-    # [Step 3] Check if tot_header and header2 have text
-    if [[ -n "$tot_header_ev" ]] || [[ -n "$header2_ev" ]]; then
-        echo "[Step 3] tot_header and header2 are NOT EMPTY, continue with ingestion"
-        
-        # ----------------------------------------------------------------------------
-        # [Step 4] Check if tot_header == header2
-        if [[ "$tot_header_ev" != "$header2_ev" ]]; then
-            echo "-----------------------------------"
-            echo "[Step 4] tot_header != header2"
-            
-            unset $tot_header_ev
-            unset $header2_ev
-            
-            # [Step 5] Check if words in header2 are in tot_header
-            echo "[Step 5] reduce_header2_to_unique_words"
-            reduce_header2_to_unique_words
-            
-            echo "number of lines remaining in header2 (if greater than zero do similarity_assignment)"
-            num_lines_in_header2=$(cat header2 | wc -l)
-            echo $num_lines_in_header2
-            
-            # [Step 6] Check if header2 is empty: if header2 is empty GO TO NEXT FILE.  IF header2 is NOT empty, do similarity.
-            if [[ $num_lines_in_header2 -gt "0" ]]; then
-                echo "-----------------------------------"
-            	echo "[Step 6] header2 is NOT empty: do similarity_assignment"
-            	
-            	
-            	# Need an example when header2 is not empty
-		# Correct words in header2 that may have the same meaning as words in tot_header
-		similarity_assignment header2 tot_header
-		# OUTPUT : filetemp -- the file contains model score matches
+	# [Step 0] Obtain a global header [tot_header] for similarily labeled datasets 
+	initial_setup $1
+	# ***** OUTPUT [file_list, Create tot_header] *****
+
+	echo "-----------------------------------"
+	echo "tot_header : AFTER clean_csv_header"
+	cat tot_header
+	echo "-----------------------------------"
+
+
+	# Loop through the list of csv files in the directory
+	for filename in $(cat file_list)
+	do
+	    echo "filename: "  
+	    echo $filename  # (ie: 202005-divvy-tripdata.csv)
+	    
+	    # [Step 1: Create header2] Clean header from csv file and put in a new file
+	    clean_csv_header $filename     # (ie: ride_id \n rideable_type \n started_at)
+	    mv dummy_name header2
+	    
+	    echo "-----------------------------------"
+	    echo "header2 : AFTER clean_csv_header"
+	    cat header2
+	    echo "-----------------------------------"
+	    
+	    # --------------------------
+	    # [Step 2] Make temporary environmental variables for tot_header and header2
+	    
+	    # String list
+	    echo "-----------------------------------"
+	    tot_header_ev=$(cat tot_header | paste -s -d "," | tr -d '\r')
+	    echo "tot_header_ev: "  
+	    echo $tot_header_ev
+	    echo "-----------------------------------"
+	    # --------------------------
+	    
+	    # --------------------------
+	    # String list
+	    echo "-----------------------------------"
+	    header2_ev=$(cat header2 | paste -s -d "," | tr -d '\r')
+	    echo "header2_ev: "  
+	    echo $header2_ev
+	    echo "-----------------------------------"
+	    # --------------------------
+	    
+	    # [Step 3] Check if tot_header and header2 have text
+	    if [[ -n "$tot_header_ev" ]] || [[ -n "$header2_ev" ]]; then
+		echo "[Step 3] tot_header and header2 are NOT EMPTY, continue with ingestion"
 		
-		# Ensure that filetemp exists
-		if [ -f filetemp ]; then
-		    evaluation_reevaluation_assignment
-		fi
-		# OUTPUT : header2 (where tot_header was compared with header2, and SIMILAR matches were saved to header2)
-		
-		# [Step 7] Determine whether header2 and tot_header should be joined/concatenated
-		# If at least one column is identical, join the headers. 
-		# For SQL ingestion, these files/tables can all be joined on using a primary key on GCP.  
-		check_for_identical_columns_in_tot_header_header2
-    		# ***** OUTPUT [count] *****
-    		
-    		
-    		# Sum to get total number of header2 words in tot_header
-		export sum=$(cat count | paste -s -d "+" | bc)
-		echo "sum: "
-		echo $sum
+		# ----------------------------------------------------------------------------
+		# [Step 4] Check if tot_header == header2
+		if [[ "$tot_header_ev" != "$header2_ev" ]]; then
+		    echo "-----------------------------------"
+		    echo "[Step 4] tot_header != header2"
+		    
+		    unset $tot_header_ev
+		    unset $header2_ev
+		    
+		    # [Step 5] Check if words in header2 are in tot_header
+		    echo "[Step 5] reduce_header2_to_unique_words"
+		    reduce_header2_to_unique_words
+		    
+		    echo "number of lines remaining in header2 (if greater than zero do similarity_assignment)"
+		    num_lines_in_header2=$(cat header2 | wc -l)
+		    echo $num_lines_in_header2
+		    
+		    # [Step 6] Check if header2 is empty: if header2 is empty GO TO NEXT FILE.  IF header2 is NOT empty, do similarity.
+		    if [[ $num_lines_in_header2 -gt "0" ]]; then
+		        echo "-----------------------------------"
+		    	echo "[Step 6] header2 is NOT empty: do similarity_assignment"
+		    	
+		    	
+		    	# Need an example when header2 is not empty
+			# Correct words in header2 that may have the same meaning as words in tot_header
+			similarity_assignment header2 tot_header
+			# OUTPUT : filetemp -- the file contains model score matches
+			
+			# Ensure that filetemp exists
+			if [ -f filetemp ]; then
+			    evaluation_reevaluation_assignment
+			fi
+			# OUTPUT : header2 (where tot_header was compared with header2, and SIMILAR matches were saved to header2)
+			
+			# [Step 7] Determine whether header2 and tot_header should be joined/concatenated
+			# If at least one column is identical, join the headers. 
+			# For SQL ingestion, these files/tables can all be joined on using a primary key on GCP.  
+			check_for_identical_columns_in_tot_header_header2
+	    		# ***** OUTPUT [count] *****
+	    		
+	    		
+	    		# Sum to get total number of header2 words in tot_header
+			export sum=$(cat count | paste -s -d "+" | bc)
+			echo "sum: "
+			echo $sum
 
-		# ---------------------------
-		if [[ "$sum" -gt "0" ]]; then
-		echo "There are some header2 words in tot_header : merge the headers"
+			# ---------------------------
+			if [[ "$sum" -gt "0" ]]; then
+			echo "There are some header2 words in tot_header : merge the headers"
 
-		# Choices: 
-		# 0) DO NOT modify tot_header and do similar_match_header (can only JOIN (append columns) and can not UNION (append rows))
+			# Choices: 
+			# 0) DO NOT modify tot_header and do similar_match_header (can only JOIN (append columns) and can not UNION (append rows))
 
-		# 1) Modify tot_header with similar m 
-		# Update tot_header with header2 values : one or more header2 values are in tot_header
-		# cat tot_header header2 | sort -u | sed '/^$/d' > temp
-		# mv temp tot_header
+			# 1) Modify tot_header with similar m 
+			# Update tot_header with header2 values : one or more header2 values are in tot_header
+			# cat tot_header header2 | sort -u | sed '/^$/d' > temp
+			# mv temp tot_header
 
-		export similar_match_header_path=$(echo "${main_path}/similar_match_header")
-		if [ ! -d "$similar_match_header_path" ]; then
-		 echo "similar_match_header does NOT exist."
-		 mkdir $main_path/similar_match_header
-		fi
-		mv $main_path/$filename $similar_match_header_path
+			export similar_match_header_path=$(echo "${main_path}/similar_match_header")
+			if [ ! -d "$similar_match_header_path" ]; then
+			 echo "similar_match_header does NOT exist."
+			 mkdir $main_path/similar_match_header
+			fi
+			mv $main_path/$filename $similar_match_header_path
 
+			else
+			echo "There are NO header2 words in tot_header : put $1 in no_match_header folder"
+			# Move the csv to another folder : NO header2 values are in tot_header
+
+			export no_match_header_path=$(echo "${main_path}/no_match_header")
+			if [ ! -d "$no_match_header_path" ]; then
+			 echo "no_match_header does NOT exist."
+			 mkdir $main_path/no_match_header
+			fi
+			mv $main_path/$filename $no_match_header_path
+
+			fi
+			# ---------------------------
+	    		
+	    		
+			
+		    else
+		        echo "-----------------------------------"
+			echo "[Step 6] header2 is EMPTY: Go to next file"
+		    fi
+		    
+		    
 		else
-		echo "There are NO header2 words in tot_header : put $1 in no_match_header folder"
-		# Move the csv to another folder : NO header2 values are in tot_header
-
-		export no_match_header_path=$(echo "${main_path}/no_match_header")
-		if [ ! -d "$no_match_header_path" ]; then
-		 echo "no_match_header does NOT exist."
-		 mkdir $main_path/no_match_header
+		    # tot_header == header2
+		    echo "-----------------------------------"
+		    echo "[Step 4] tot_header == header2, Go to next file"
+		    mv $main_path/$filename $exact_match_header_path
 		fi
-		mv $main_path/$filename $no_match_header_path
-
-		fi
-		# ---------------------------
-    		
-    		
+		# ----------------------------------------------------------------------------
 		
-            else
-                echo "-----------------------------------"
-		echo "[Step 6] header2 is EMPTY: Go to next file"
-            fi
-            
-            
-        else
-            # tot_header == header2
-            echo "-----------------------------------"
-            echo "[Step 4] tot_header == header2, Go to next file"
-            mv $main_path/$filename $exact_match_header_path
-        fi
-        # ----------------------------------------------------------------------------
-        
-    else
-        echo "[Step 3] tot_header and/or header2 are EMPTY, Put file in empty_header folder, Go to next file"
-        mkdir empty_header
-        mv $filename empty_header
-    fi
-    
-    
-    # --------------------------
-    # [Step 8] Delete all files for next filename
-    delete_temp_files
-    
-    if [ -f header2 ]; then
-        rm header2
-    fi
-    # --------------------------
-    
-done # end of [for filename in $(cat folder_list2)]
+	    else
+		echo "[Step 3] tot_header and/or header2 are EMPTY, Put file in empty_header folder, Go to next file"
+		mkdir empty_header
+		mv $filename empty_header
+	    fi
+	    
+	    
+	    # --------------------------
+	    # [Step 8] Delete all files for next filename
+	    delete_temp_files
+	    
+	    if [ -f header2 ]; then
+		rm header2
+	    fi
+	    # --------------------------
+	    
+	done # end of [for filename in $(cat folder_list2)]
+
+
+}
+
 
 # ----------------------------------------------------------------------------
 

@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# cd /home/oem2/Documents/ONLINE_CLASSES/Spécialisation_Google_Data_Analytics/3_Google_Data_Analytics_Capstone_Complete_a_Case_Study/git2/automatic_GCP_ingestion
-
-# source ./GCP_bigquery_statistic_library.sh
-
 
 
 # ---------------------------
@@ -143,7 +139,7 @@ ONE_SAMPLE_TESTS_zstatistic_per_row(){
 
     # [0] z_statistic_ONE_SAMPLE : Comparing the sample population mean with the population mean (large sample size populations)
     
-    # Ideal for the case for a list of probabilities for an event occurence, and one would like to know which probablistic events are statistically significant to occur with respect to the other events.
+    # Ideal for the case for a column of probabilities for an event occurence, and one would like to know which probablistic events are statistically significant to occur with respect to the other events.
     # Note that the length is set to one, thus the t and z-statistic will be computed per row.
 
     # Inputs:

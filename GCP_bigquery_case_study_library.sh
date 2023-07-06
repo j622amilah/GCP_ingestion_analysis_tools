@@ -760,77 +760,6 @@ get_trial_info(){
 }
 
 
-
-
-
-# ---------------------------------------------
-
-
-
-# -----------------
-# Backup/Copy table
-# -----------------
-export val=$(echo "X1")
-
-if [[ $val == "X0" ]]
-then 
-    
-    echo "Backup/Copy table:"
-    export output_TABLE_name=$(echo "output_TABLE_name_prev")
-    # export output_TABLE_name_backup=$(echo "bikeshare_table0")
-    export output_TABLE_name_backup=$(echo "bikeshare_table1")
-    
-    bq --location=$location cp \
-            -a -f -n \
-            $PROJECT_ID:$dataset_name.$output_TABLE_name \
-            $PROJECT_ID:$dataset_name.$output_TABLE_name_backup
-
-fi
-
-
-# ---------------------------------------------
-
-
-
-
-# ---------------------------------------------
-
-
-# -----------------
-# List buckets
-# -----------------
-export val=$(echo "X1")
-
-if [[ $val == "X0" ]]
-then 
-    
-    echo "list buckets"
-    gcloud storage ls
-
-fi
-
-
-# ---------------------------------------------
-
-
-export val=$(echo "X1")
-
-if [[ $val == "X0" ]]
-then 
-    
-    export output_TABLE_name_prev=$(echo "output_TABLE_name_prev")
-    
-    # Save final_table in bucket
-    bq extract --location=$location \
-               --destination_format=CSV \
-               --field_delimiter=',' \
-               --print_header=boolean \
-               $PROJECT_ID:$dataset_name.$output_TABLE_name_prev \
-               gs://the_bucket4/myFile.csv
-    
-fi
-
-
 # ---------------------------------------------
 
 
@@ -863,32 +792,6 @@ delete_tables_using_a_list(){
 
 # ---------------------------------------------
 
-export val=$(echo "X1")
-
-if [[ $val == "X0" ]]
-then 
-    echo "---------------- update the table schema ----------------"
-    
-    cd $cur_path
-    
-    cnt=0
-    for TABLE_name in $(cat table_list_names)
-    do  
-        echo "TABLE_name:"
-        echo $TABLE_name
-    
-	bq --location=$location update $PROJECT_ID:$dataset_name.$TABLE_name ${cur_path}/myschema.json
-    
-        cnt=$((cnt + 1))
-        
-    done
-    
-fi
-
-# ---------------------------------------------
-
-
-# ---------------------------------------------
 
 
 # ---------------------------
