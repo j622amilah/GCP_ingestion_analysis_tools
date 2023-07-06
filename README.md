@@ -4,9 +4,15 @@
 How to use this Google Cloud Platform ingestion and analysis tool libraries:
 
 0. Add the libraries to the work path 
+
 source ./GCP_bigquery_case_study_library.sh
+
 source ./GCP_bigquery_statistic_library.sh
+
 source ./GCP_common_header.sh
+
+
+1. Call the function names
 
 
 
