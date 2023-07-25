@@ -278,6 +278,7 @@ WHERE TABLE_NAME='$4';"
 }
 
 
+
 # ---------------------------------------------
 
 
@@ -303,7 +304,7 @@ test_train_split_equal_class_samples(){
             --destination_table $2:$3.table_train_test_split \
             --allow_large_results \
             --use_legacy_sql=false \
-            'SELECT ROW_NUMBER() OVER(PARTITION BY label ORDER BY RAND() DESC) AS num_row_per_class, *
+            'SELECT ROW_NUMBER() OVER(PARTITION BY '$4' ORDER BY RAND() DESC) AS num_row_per_class, *
             FROM `'$2'.'$3'.'$8'`;'  
 
      echo "Look at class balance: Take data for the minimum class count for now"
@@ -578,6 +579,7 @@ kmeans(){
     # $5 = TESTING_TABLE_name
     # $6 = MODEL_name
     # $7 = PREDICTED_results_TABLE_name
+    # $8 = NUM_CLUSTERS
 	
     # Bigquery needs numerical features and labels
 	
@@ -590,7 +592,7 @@ kmeans(){
             --allow_large_results \
             --use_legacy_sql=false \
     'CREATE MODEL '$3'.'$6'
-    OPTIONS(model_type="KMEANS", NUM_CLUSTERS=2, KMEANS_INIT_METHOD="KMEANS++", MAX_ITERATIONS=50, early_stop=TRUE, MIN_REL_PROGRESS=0.001, WARM_START=FALSE, DISTANCE_TYPE="COSINE") AS 
+    OPTIONS(model_type="KMEANS", NUM_CLUSTERS='$8', KMEANS_INIT_METHOD="KMEANS++", MAX_ITERATIONS=50, early_stop=TRUE, MIN_REL_PROGRESS=0.001, WARM_START=FALSE, DISTANCE_TYPE="COSINE") AS 
     SELECT *
     FROM `'$2'.'$3'.'$4'`'
    
@@ -797,6 +799,3 @@ delete_tables_using_a_list(){
 # ---------------------------
 # Functions END
 # ---------------------------
-
-
-

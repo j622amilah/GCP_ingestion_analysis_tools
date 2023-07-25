@@ -55,7 +55,7 @@ AS (
   SELECT '$6',
   z_statistic_ONE_SAMPLE(samp1_mean, pop_mean, pop_std, samp1_len) AS z_critical_onesample,
   t_statistic_ONE_SAMPLE(samp1_mean, pop_mean, samp1_std, samp1_len) AS t_critical_onesample,
-  avg_samp1_VAR,
+  avg_samp1_VAR AS category_mean,
   samp1_len AS df_sample_number
   FROM shorttab2;'
 
@@ -64,8 +64,7 @@ AS (
             --location=$1 \
             --allow_large_results \
             --use_legacy_sql=false \
-    'SELECT AVG('$2') FROM `'$3'.'$4'.'$5'`'
-
+    'SELECT AVG('$2') AS population_mean FROM `'$3'.'$4'.'$5'`'
 
 }
 
@@ -98,7 +97,7 @@ ONE_SAMPLE_TESTS_t_and_zstatistic_of_CATfeat_perCategory(){
             --destination_table $PROJECT_ID:$dataset_name.temp_table \
             --allow_large_results \
             --use_legacy_sql=false \
-    'SELECT *, ML.LABEL_ENCODER(gender) OVER () AS '$transformed_FEAT'
+    'SELECT *, ML.LABEL_ENCODER(wday) OVER () AS '$transformed_FEAT'
 FROM `'$2'.'$3'.'$4'`;'
 
 
@@ -135,6 +134,7 @@ FROM `'$2'.'$3'.'$4'`;'
 
 
 # Z-score : https://www.socscistatistics.com/pvalues/normaldistribution.aspx
+
 ONE_SAMPLE_TESTS_zstatistic_per_row(){
 
     # [0] z_statistic_ONE_SAMPLE : Comparing the sample population mean with the population mean (large sample size populations)
@@ -282,6 +282,31 @@ AS (
 
 # ---------------------------
 
+# https://www.socscistatistics.com/tests/criticalvalues/default.aspx
+ONE_WAY_ANOVA(){
+
+    # Inputs:
+    # $1 = location
+    # $2 = samp1_FEAT_name
+    # $3 = samp2_FEAT_name
+    # $4 = PROJECT_ID
+    # $5 = dataset_name
+    # $6 = TABLE_name
+    
+    # Z_statistic_TWO_SAMPLE : Comparing the the means of two sample populations
+    
+	bq query \
+            --location=$1 \
+            --allow_large_results \
+            --use_legacy_sql=false \
+    ''
+} 
+
+
+
+
+# ---------------------------
+
 
 # Calculate the p-value per z-statistic or t-statistic [To do]
 
@@ -383,12 +408,3 @@ AS (
 
 
 # ---------------------------------------------
-
-
-
-
-
-
-
-
-
