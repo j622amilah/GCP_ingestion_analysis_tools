@@ -847,7 +847,7 @@ delete_tables_using_a_list(){
 # ---------------------------------------------
 
 
-download_data(){
+download_data_from_AWS(){
 
 		
 	# ---------------------------------------------
@@ -981,8 +981,89 @@ download_data(){
 
 }
 
+# ---------------------------------------------
+
+download_data_from_Kaggle(){
+
+    # Inputs:
+    # $1 = path_outside_of_ingestion_folder
+    # $2 = NAME_OF_DATASET
+    
+    cd $1
+	
+    kaggle datasets download -d $2
+	
+    sudo mkdir $1/data_download
+	
+    sudo chmod 777 $1/data_download
+	
+    sudo mv /home/oem2/*.zip $1/data_download
 
 
+}
+
+# ---------------------------------------------
+
+# To call the function :
+# use_data_from_GCP
+# $?
+
+
+use_data_from_GCP(){
+    # Main site: https://cloud.google.com/bigquery/public-data
+    
+    # https://cloud.google.com/bigquery/docs/quickstarts/query-public-dataset-bq
+    # bq show bigquery-public-data:samples.gsod
+    # bq show bigquery-public-data:samples.github_nested
+    # bq show bigquery-public-data:samples.github_timeline
+    # bq show bigquery-public-data:samples.natality
+    # bq show bigquery-public-data:samples.shakespeare
+    # bq show bigquery-public-data:samples.trigrams
+    # bq show bigquery-public-data:samples.wikipedia
+    
+    # ---------------------------------------------
+    
+    # List all dataset in the bigquery-public (there was a way to list all the public datasets in BigQuery using bq) 
+    # bq ls bigquery-public  # does not work
+    # bq ls bigquery-public-data  # does not work
+    
+    # OR
+    
+    # Go to https://console.cloud.google.com/
+    # Get the desired name of the dataset
+    # bigquery-public-data.geo_us_boundaries   # Census Bureau US Boundaries
+    # bigquery-public-data.new_york_citibike   # NYC Citi Bike Trips 
+    # bigquery-public-data.pypi
+    # bigquery-public-data.stackoverflow
+    # bigquery-public-data.wikipedia
+    
+    # ---------------------------------------------
+    
+    # https://cloud.google.com/bigquery/docs/analytics-hub-view-subscribe-listings#api
+    # As an Analytics Hub subscriber, you can view and subscribe to listings for which you have access. Subscribing to a listing creates a linked dataset in your project.
+   
+    # ---------------------------------------------
+    
+    export PUBLIC_PROJECT_ID=$(echo "bigquery-public-data")
+    
+    # List permissions for the dataset
+    bq show $PUBLIC_PROJECT_ID:$PUBLIC_dataset_name
+	
+    # List the tables in the dataset
+    bq ls $PUBLIC_PROJECT_ID:$PUBLIC_dataset_name
+    
+    # I0901 12:16:09.603880 140076992300864 bigquery_client.py:730] There is no apilog flag so non-critical logging is disabled.
+    #    tableId        Type    Labels   Time Partitioning   Clustered Fields  
+    # ------------------- ------- -------- ------------------- ------------------ 
+    # citibike_stations   TABLE                                                  
+    # citibike_trips      TABLE 
+    
+    export TABLE_name=$(echo "citibike_trips")
+    
+    # ---------------------------------------------
+    
+    return $TABLE_name
+}
 
 # ---------------------------------------------
 
