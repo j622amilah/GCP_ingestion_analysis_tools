@@ -276,8 +276,8 @@ upload_csv_files(){
        # OR
        # Save tables to a dataset folder dedicated to one thing, and use bq ls to get table names in next query
        
-       # BigQuery error in load operation: Cannot determine table described
-       # If you are are getting this error , it is an authentication and authorization issue, simply log out and log in again. e.g if you are using cloud shell – close it and reopen.
+       # Load with a specific schema: https://cloud.google.com/bigquery/docs/reference/bq-cli-reference#bq_load
+       # --schema=date_of_disaster:STRING,Quarter:STRING,Total_sales:INTEGER
        
        # Upload with schema options: autodetect the schema fields
         bq load \
