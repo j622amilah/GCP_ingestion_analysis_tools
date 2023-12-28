@@ -28,6 +28,6 @@ Contains functions to:  organize a large number of zipfiles into a csv only fold
 Contains functions to perform the : one sample t-statistic and z-statistic for a variety of cases, two sample z-statistic for a variety of cases (with or without respect to a category)
 
 
-[2] GCP_common_header.sh
+[2] sort_common_header.sh (Available for purchase on Upwork: )
 
 A function that will organize a folder of csv files into three folders: exact_match_header, similar_match_header, no_match_header. The exact_match_header files all have the same common header, so they can be uploaded directly to GCP in the next step.
